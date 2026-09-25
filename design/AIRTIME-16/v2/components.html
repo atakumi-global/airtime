@@ -1,0 +1,983 @@
+<!doctype html>
+<html lang="en" data-page="components.html">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Airtime — Core components</title>
+<meta name="description" content="Airtime coded design system and screen designs. Plane visual language, WCAG 2.2 AA.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box}
+:root{
+  color-scheme:light;
+  --canvas:oklch(0.9543 0.001 230.67);
+  --surface-1:#fff;
+  --surface-2:oklch(0.9848 0.0003 230.66);
+  --layer-1:oklch(0.9696 0.0007 230.67);
+  --layer-1-hover:oklch(0.9543 0.001 230.67);
+  --layer-1-active:oklch(0.9389 0.0014 230.68);
+  --layer-2:#fff;
+  --layer-3:oklch(0.9543 0.001 230.67);
+  --border-subtle:oklch(0.9389 0.0014 230.68);
+  --border-strong:oklch(0.8925 0.0024 230.7);
+  --border-heavy:oklch(0.8612 0.0032 230.71);
+  --txt:oklch(0.2378 0.0029 230.83);
+  --txt-2:oklch(0.4377 0.0066 230.87);
+  --txt-3:oklch(0.5288 0.0083 230.88);
+  --txt-placeholder:oklch(0.6161 0.009153 230.867);
+  --txt-disabled:oklch(0.6668 0.0079 230.82);
+  --brand:oklch(0.4799 0.1158 242.91);
+  --brand-hover:oklch(0.4347 0.104093 242.4823);
+  --brand-active:oklch(0.3399 0.0783 240.32);
+  --brand-subtle:oklch(0.9847 0.0083 236.56);
+  --brand-subtle-hover:oklch(0.9715 0.0167 230.9);
+  --on-brand:#fff;
+  --success:oklch(0.632 0.185972 147.3695);
+  --success-strong:oklch(0.4468 0.1187 151.4);
+  --success-subtle:oklch(0.9819 0.0181 155.83);
+  --warning:oklch(0.7724 0.172798 65.367);
+  --warning-strong:oklch(0.6671 0.1685 53.38);
+  --warning-subtle:oklch(0.9869 0.0214 95.28);
+  --danger:oklch(0.583 0.238666 28.4765);
+  --danger-strong:oklch(0.4446 0.1774 26.79);
+  --danger-subtle:oklch(0.9705 0.0129 17.38);
+  --backdrop:oklch(0.1482 0.0034 196.79 / 50%);
+  --shadow-100:0 1px 6px -1px #292f3d08,0 1px 4px 0 #292f3d0a;
+  --shadow-200:0 1px 2px -1px #292f3d0f,0 1px 3px 0 #292f3d0d;
+  --shadow-300:0 2px 4px -1px #292f3d0a,0 4px 6px -1px #292f3d0d;
+  --shadow-overlay:0 10px 10px -5px #292f3d0a,0 10px 40px -5px #292f3d0a;
+  --focus:oklch(0.4799 0.1158 242.91);
+  --frame-h:44px;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  color-scheme:dark;
+  --canvas:oklch(0.1689 0.0021 230.81);
+  --surface-1:oklch(0.1932 0.002 230.81);
+  --surface-2:oklch(0.2158 0.0025 230.82);
+  --layer-1:oklch(0.2158 0.0025 230.82);
+  --layer-1-hover:oklch(0.2378 0.0029 230.83);
+  --layer-1-active:oklch(0.2593 0.0033 230.84);
+  --layer-2:oklch(0.2378 0.0029 230.83);
+  --layer-3:oklch(0.2593 0.0033 230.84);
+  --border-subtle:oklch(0.2593 0.0033 230.84);
+  --border-strong:oklch(0.3415 0.0049 230.86);
+  --border-heavy:oklch(0.3999 0.0059 230.87);
+  --txt:oklch(0.9235 0.001733 230.6853);
+  --txt-2:oklch(0.8455 0.0035 230.72);
+  --txt-3:oklch(0.7655 0.0054 230.76);
+  --txt-placeholder:oklch(0.6835 0.0074 230.81);
+  --txt-disabled:oklch(0.5989 0.0096 230.88);
+  --brand:oklch(0.6311 0.126281 238.01);
+  --brand-hover:oklch(0.4511 0.087024 237.37);
+  --brand-active:oklch(0.4088 0.077702 237.13);
+  --brand-subtle:oklch(0.2029 0.03 232.24);
+  --brand-subtle-hover:oklch(0.2513 0.0418 234.6);
+  --on-brand:oklch(1 0 0);
+  --success:oklch(0.7914 0.2091 151.66);
+  --success-strong:oklch(0.9258 0.0845 155.86);
+  --success-subtle:oklch(0.2721 0.067322 152.52);
+  --warning:oklch(0.7724 0.172798 65.367);
+  --warning-strong:oklch(0.829 0.1712 81.04);
+  --warning-subtle:oklch(0.3042 0.0853 45.16);
+  --danger:oklch(0.7022 0.1892 22.23);
+  --danger-strong:oklch(0.8834 0.0616 18.39);
+  --danger-subtle:oklch(0.2615 0.085 24.41);
+  --backdrop:oklch(0.1482 0.0034 196.79 / 70%);
+  --shadow-overlay:0 10px 10px -10px #000a,0 30px 60px -12px #0006;
+  --focus:oklch(0.6311 0.126281 238.01);
+}}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --canvas:oklch(0.1689 0.0021 230.81);
+  --surface-1:oklch(0.1932 0.002 230.81);
+  --surface-2:oklch(0.2158 0.0025 230.82);
+  --layer-1:oklch(0.2158 0.0025 230.82);
+  --layer-1-hover:oklch(0.2378 0.0029 230.83);
+  --layer-1-active:oklch(0.2593 0.0033 230.84);
+  --layer-2:oklch(0.2378 0.0029 230.83);
+  --layer-3:oklch(0.2593 0.0033 230.84);
+  --border-subtle:oklch(0.2593 0.0033 230.84);
+  --border-strong:oklch(0.3415 0.0049 230.86);
+  --border-heavy:oklch(0.3999 0.0059 230.87);
+  --txt:oklch(0.9235 0.001733 230.6853);
+  --txt-2:oklch(0.8455 0.0035 230.72);
+  --txt-3:oklch(0.7655 0.0054 230.76);
+  --txt-placeholder:oklch(0.6835 0.0074 230.81);
+  --txt-disabled:oklch(0.5989 0.0096 230.88);
+  --brand:oklch(0.6311 0.126281 238.01);
+  --brand-hover:oklch(0.4511 0.087024 237.37);
+  --brand-active:oklch(0.4088 0.077702 237.13);
+  --brand-subtle:oklch(0.2029 0.03 232.24);
+  --brand-subtle-hover:oklch(0.2513 0.0418 234.6);
+  --on-brand:#fff;
+  --success:oklch(0.7914 0.2091 151.66);
+  --success-strong:oklch(0.9258 0.0845 155.86);
+  --success-subtle:oklch(0.2721 0.067322 152.52);
+  --warning:oklch(0.7724 0.172798 65.367);
+  --warning-strong:oklch(0.829 0.1712 81.04);
+  --warning-subtle:oklch(0.3042 0.0853 45.16);
+  --danger:oklch(0.7022 0.1892 22.23);
+  --danger-strong:oklch(0.8834 0.0616 18.39);
+  --danger-subtle:oklch(0.2615 0.085 24.41);
+  --backdrop:oklch(0.1482 0.0034 196.79 / 70%);
+  --shadow-overlay:0 10px 10px -10px #000a,0 30px 60px -12px #0006;
+  --focus:oklch(0.6311 0.126281 238.01);
+}
+html{-webkit-text-size-adjust:100%;text-rendering:optimizeLegibility;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+body{
+  margin:0;min-height:100vh;background:var(--canvas);color:var(--txt);
+  font-family:"Inter","Inter Variable",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:13px;line-height:1.55;font-variant-ligatures:none;
+}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
+h1,h2,h3,h4{margin:0;font-weight:600;letter-spacing:-0.02rem;color:var(--txt)}
+h1{font-size:24px;line-height:1.3}
+h2{font-size:18px;line-height:1.35}
+h3{font-size:14px;line-height:1.4}
+p{margin:0 0 10px}
+a{color:var(--brand);text-decoration:none}
+a:hover{text-decoration:underline;color:var(--brand-hover)}
+:where(a,button,input,select,textarea,[tabindex]):focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:4px}
+.mono{font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-variant-numeric:tabular-nums}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.skip{position:absolute;left:12px;top:-60px;z-index:1000;background:var(--surface-1);color:var(--txt);border:1px solid var(--border-strong);border-radius:8px;padding:8px 14px;box-shadow:var(--shadow-overlay);transition:top .15s}
+.skip:focus{top:12px}
+.muted{color:var(--txt-3)}
+.sub{color:var(--txt-2)}
+.tiny{font-size:11px}
+.small{font-size:12px}
+.strong{font-weight:600}
+.mt-0{margin-top:0}.mt-4{margin-top:4px}.mt-8{margin-top:8px}.mt-12{margin-top:12px}.mt-16{margin-top:16px}.mt-24{margin-top:24px}
+.row{display:flex;align-items:center;gap:8px}
+.row.between{justify-content:space-between}
+.row.wrap{flex-wrap:wrap}
+.grow{flex:1;min-width:0}
+.stack{display:flex;flex-direction:column;gap:12px}
+.grid{display:grid;gap:16px}
+.truncate{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.divider{height:1px;background:var(--border-subtle);border:0;margin:16px 0}
+
+/* ---------------- design frame (reviewer chrome, not product) ------ */
+.ds-frame{position:sticky;top:0;z-index:60;height:var(--frame-h);display:flex;align-items:center;gap:14px;padding:0 16px;background:var(--surface-1);border-bottom:1px solid var(--border-subtle);box-shadow:var(--shadow-100)}
+.ds-brand{display:flex;align-items:center;gap:9px;font-weight:700;letter-spacing:-0.02rem;font-size:14px}
+.ds-mark{width:22px;height:22px;border-radius:7px;background:linear-gradient(140deg,var(--brand),oklch(0.62 0.14 200));display:grid;place-items:center;color:#fff;flex:none}
+.ds-nav{display:flex;gap:2px;overflow-x:auto;flex:1;min-width:0;scrollbar-width:none}
+.ds-nav::-webkit-scrollbar{display:none}
+.ds-nav a{padding:5px 9px;border-radius:7px;color:var(--txt-2);font-size:12px;font-weight:500;white-space:nowrap}
+.ds-nav a:hover{background:var(--layer-1);text-decoration:none;color:var(--txt)}
+.ds-nav a[aria-current="page"]{background:var(--brand-subtle);color:var(--brand)}
+.ds-tools{display:flex;align-items:center;gap:6px;flex:none}
+.themebtn{border:1px solid var(--border-subtle);background:var(--surface-1);color:var(--txt-2);border-radius:7px;height:28px;padding:0 9px;font:inherit;font-size:11px;font-weight:600;display:inline-flex;align-items:center;gap:5px}
+.themebtn:hover{background:var(--layer-1)}
+
+/* ---------------- product window ---------------- */
+.win{border:1px solid var(--border-strong);border-radius:10px;overflow:hidden;background:var(--surface-1);box-shadow:var(--shadow-overlay);max-width:1180px;margin:22px auto}
+.win.wide{max-width:1320px}
+.titlebar{height:36px;display:flex;align-items:center;gap:10px;padding:0 8px 0 12px;background:var(--surface-2);border-bottom:1px solid var(--border-subtle);user-select:none}
+.tb-dots{display:flex;gap:6px}
+.tb-dots i{width:10px;height:10px;border-radius:50%;background:var(--border-strong)}
+.tb-title{font-size:12px;font-weight:600;color:var(--txt-2)}
+.tb-actions{margin-left:auto;display:flex}
+.wc{width:42px;height:28px;display:grid;place-items:center;border:0;background:transparent;color:var(--txt-2);border-radius:6px}
+.wc:hover{background:var(--layer-1)}
+.wc.close:hover{background:var(--danger);color:#fff}
+.appbody{display:grid;grid-template-columns:236px 1fr;min-height:640px}
+.sidebar{background:var(--surface-2);border-right:1px solid var(--border-subtle);display:flex;flex-direction:column;padding:12px 10px;gap:4px;min-width:0}
+.side-ws{display:flex;align-items:center;gap:9px;padding:6px 8px 12px}
+.avatar{width:26px;height:26px;border-radius:50%;background:var(--brand);color:var(--on-brand);display:grid;place-items:center;font-size:11px;font-weight:700;flex:none}
+.side-label{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--txt-3);padding:12px 8px 4px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:7px 9px;border-radius:7px;color:var(--txt-2);font-size:13px;font-weight:500;border:1px solid transparent}
+.nav-item:hover{background:var(--layer-1);text-decoration:none;color:var(--txt)}
+.nav-item.active{background:var(--brand-subtle);color:var(--brand)}
+.nav-item .count{margin-left:auto;font-size:11px;color:var(--txt-3);font-weight:600}
+.main{display:flex;flex-direction:column;min-width:0;background:var(--canvas)}
+.topbar{height:52px;flex:none;display:flex;align-items:center;gap:12px;padding:0 18px;border-bottom:1px solid var(--border-subtle);background:var(--surface-1)}
+.content{padding:18px;display:flex;flex-direction:column;gap:16px;min-width:0}
+.content.pad{padding:22px}
+
+/* ---------------- icons ---------------- */
+.ic{width:16px;height:16px;flex:none;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
+.ic.sm{width:14px;height:14px}
+.ic.lg{width:20px;height:20px}
+
+/* ---------------- buttons ---------------- */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:7px;
+  height:32px;padding:0 12px;border-radius:8px;border:1px solid transparent;
+  font:inherit;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;
+  background:var(--layer-1);color:var(--txt);border-color:var(--border-subtle);
+  min-width:32px;transition:background .12s,border-color .12s,color .12s;
+}
+.btn:hover{background:var(--layer-1-hover)}
+.btn:active{background:var(--layer-1-active)}
+.btn.primary{background:var(--brand);border-color:transparent;color:var(--on-brand)}
+.btn.primary:hover{background:var(--brand-hover)}
+.btn.primary:active{background:var(--brand-active)}
+.btn.ghost{background:transparent;border-color:transparent;color:var(--txt-2)}
+.btn.ghost:hover{background:var(--layer-1);color:var(--txt)}
+.btn.outline{background:transparent;border-color:var(--border-strong)}
+.btn.outline:hover{background:var(--layer-1)}
+.btn.danger{background:var(--danger);border-color:transparent;color:#fff}
+.btn.danger:hover{background:var(--danger-strong)}
+.btn.danger-ghost{background:var(--danger-subtle);border-color:transparent;color:var(--danger-strong)}
+.btn.danger-ghost:hover{background:var(--danger);color:#fff}
+.btn.sm{height:26px;font-size:12px;padding:0 9px;border-radius:7px}
+.btn.lg{height:38px;font-size:14px;padding:0 16px;border-radius:9px}
+.btn.icon{width:32px;padding:0}
+.btn.icon.sm{width:26px}
+.btn:disabled,.btn[aria-disabled="true"]{background:var(--layer-1);color:var(--txt-disabled);border-color:var(--border-subtle);cursor:not-allowed;opacity:1}
+.btn.primary:disabled{background:var(--brand);opacity:.45;color:var(--on-brand)}
+.btn.loading{color:transparent;position:relative;pointer-events:none}
+.btn.loading .ic{visibility:hidden}
+.spinner{width:14px;height:14px;border-radius:50%;border:2px solid currentColor;border-right-color:transparent;animation:spin .7s linear infinite;position:absolute}
+.btn.loading .spinner{color:var(--txt);visibility:visible}
+.btn.primary.loading .spinner{color:var(--on-brand)}
+@keyframes spin{to{transform:rotate(360deg)}}
+.btn-group{display:inline-flex;gap:0}
+.btn-group .btn{border-radius:0;border-color:var(--border-subtle)}
+.btn-group .btn+ .btn{border-left:0}
+.btn-group .btn:first-child{border-radius:8px 0 0 8px}
+.btn-group .btn:last-child{border-radius:0 8px 8px 0}
+
+/* ---------------- forms ---------------- */
+.field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.label{font-size:12px;font-weight:600;color:var(--txt-2)}
+.hint{font-size:11px;color:var(--txt-3)}
+.err{font-size:11px;color:var(--danger-strong);display:flex;gap:5px;align-items:center}
+.input,.select,.textarea{
+  width:100%;background:var(--surface-1);color:var(--txt);
+  border:1px solid var(--border-strong);border-radius:8px;height:32px;padding:0 10px;
+  font:inherit;font-size:13px;min-width:0;
+}
+.textarea{height:auto;padding:8px 10px;resize:vertical;min-height:72px;line-height:1.5}
+.input::placeholder,.textarea::placeholder{color:var(--txt-placeholder)}
+.input:hover,.select:hover,.textarea:hover{border-color:var(--border-heavy)}
+.input:focus,.select:focus,.textarea:focus{outline:2px solid var(--focus);outline-offset:1px;border-color:var(--brand)}
+.input[aria-invalid="true"],.select[aria-invalid="true"]{border-color:var(--danger);border-width:1.5px}
+.input:disabled,.select:disabled,.textarea:disabled{background:var(--layer-1);color:var(--txt-disabled);cursor:not-allowed}
+.select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2370757d' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center;padding-right:30px}
+.input-wrap{position:relative;display:flex;align-items:center}
+.input-wrap .ic{position:absolute;left:9px;color:var(--txt-3);pointer-events:none}
+.input-wrap .input{padding-left:31px}
+.check{display:flex;gap:9px;align-items:flex-start;font-size:13px;color:var(--txt);cursor:pointer}
+.check input{appearance:none;width:16px;height:16px;margin:1px 0 0;border:1.5px solid var(--border-heavy);border-radius:4px;background:var(--surface-1);flex:none;display:grid;place-items:center}
+.check input:checked{background:var(--brand);border-color:var(--brand)}
+.check input:checked::after{content:"";width:9px;height:5px;border:2px solid var(--on-brand);border-top:0;border-right:0;transform:rotate(-45deg) translateY(-1px)}
+.check input[type="radio"]{border-radius:50%}
+.check input[type="radio"]:checked{background:var(--surface-1);border-color:var(--brand);border-width:5px}
+.check input[type="radio"]:checked::after{display:none}
+.check input:disabled{background:var(--layer-1);border-color:var(--border-subtle);cursor:not-allowed}
+.switch{display:inline-flex;align-items:center;gap:10px;cursor:pointer}
+.switch input{appearance:none;width:34px;height:20px;border-radius:999px;background:var(--border-strong);position:relative;transition:background .12s;flex:none}
+.switch input::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:var(--shadow-100);transition:left .12s}
+.switch input:checked{background:var(--brand)}
+.switch input:checked::after{left:16px}
+.switch input:disabled{background:var(--border-subtle);cursor:not-allowed}
+.seg{display:inline-flex;background:var(--layer-1);border:1px solid var(--border-subtle);border-radius:8px;padding:2px;gap:2px}
+.seg button{border:0;background:transparent;color:var(--txt-2);font:inherit;font-size:12px;font-weight:600;height:26px;padding:0 11px;border-radius:6px}
+.seg button[aria-pressed="true"]{background:var(--surface-1);color:var(--txt);box-shadow:var(--shadow-100)}
+
+/* ---------------- badges / flags ---------------- */
+.badge{display:inline-flex;align-items:center;gap:5px;height:20px;padding:0 7px;border-radius:6px;font-size:11px;font-weight:600;background:var(--layer-1);color:var(--txt-2);border:1px solid var(--border-subtle)}
+.badge .dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex:none}
+.badge.green{background:var(--success-subtle);color:var(--success-strong);border-color:transparent}
+.badge.amber{background:var(--warning-subtle);color:var(--warning-strong);border-color:transparent}
+.badge.red{background:var(--danger-subtle);color:var(--danger-strong);border-color:transparent}
+.badge.blue{background:var(--brand-subtle);color:var(--brand);border-color:transparent}
+.badge.grey{background:var(--layer-1);color:var(--txt-2)}
+.badge.outline{background:transparent;border-color:var(--border-strong);color:var(--txt-2)}
+.flag{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600}
+.flag.green{color:var(--success-strong)}
+.flag.amber{color:var(--warning-strong)}
+.flag.red{color:var(--danger-strong)}
+.flag.blue{color:var(--brand)}
+.flag .ic{width:13px;height:13px}
+/* never colour-only: flags carry an icon + text label */
+.prio{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--txt-2)}
+.prio .bars{display:flex;gap:1.5px;align-items:flex-end;height:12px}
+.prio .bars i{width:3px;border-radius:1px;background:var(--border-heavy)}
+.prio .bars i:nth-child(1){height:4px}.prio .bars i:nth-child(2){height:8px}.prio .bars i:nth-child(3){height:12px}
+.prio.urgent .bars i{background:var(--danger)}
+.prio.high .bars i:nth-child(-n+2){background:var(--warning-strong)}
+.prio.high .bars i:nth-child(3){background:var(--danger)}
+.prio.medium .bars i:nth-child(1){background:var(--warning-strong)}
+.prio.low .bars i:nth-child(1){background:var(--brand)}
+
+/* ---------------- progress / budget bar ---------------- */
+.bar{position:relative;height:8px;border-radius:999px;background:var(--layer-1);overflow:visible}
+.bar > i{display:block;height:100%;border-radius:999px;background:var(--brand)}
+.bar.green > i{background:var(--success)}
+.bar.amber > i{background:var(--warning)}
+.bar.red > i{background:var(--danger)}
+.bar .proj{position:absolute;top:-3px;width:2px;height:14px;border-radius:2px;background:var(--txt-3)}
+.bar .proj::after{content:"";position:absolute;top:-4px;left:-2.5px;border:3.5px solid transparent;border-top-color:var(--txt-3)}
+.bar.lg{height:12px}
+.bar.striped > i{background-image:linear-gradient(45deg,#ffffff40 25%,transparent 25%,transparent 50%,#ffffff40 50%,#ffffff40 75%,transparent 75%);background-size:8px 8px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:var(--txt-3)}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.legend i{width:9px;height:9px;border-radius:3px;background:var(--brand)}
+
+/* ---------------- table ---------------- */
+.table-wrap{border:1px solid var(--border-subtle);border-radius:9px;overflow:auto;background:var(--surface-1)}
+table.table{width:100%;border-collapse:collapse;font-size:12.5px}
+.table th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--txt-3);font-weight:700;padding:9px 12px;border-bottom:1px solid var(--border-subtle);background:var(--surface-2);position:sticky;top:0;white-space:nowrap}
+.table td{padding:10px 12px;border-bottom:1px solid var(--border-subtle);color:var(--txt-2);vertical-align:middle}
+.table tbody tr:last-child td{border-bottom:0}
+.table tbody tr:hover td{background:var(--layer-1)}
+.table td.num,.table th.num{text-align:right;font-family:"IBM Plex Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums;color:var(--txt)}
+.table .name{color:var(--txt);font-weight:600}
+.table tr.flag-row td{background:var(--danger-subtle)}
+.table tr.warn-row td{background:var(--warning-subtle)}
+
+/* ---------------- cards / stat ---------------- */
+.card{background:var(--surface-1);border:1px solid var(--border-subtle);border-radius:10px;padding:16px}
+.card.pad-sm{padding:12px}
+.card-title{font-size:13px;font-weight:600;margin-bottom:2px}
+.stat{display:flex;flex-direction:column;gap:4px}
+.stat .k{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--txt-3);font-weight:700}
+.stat .v{font-size:22px;font-weight:700;letter-spacing:-0.03rem;font-variant-numeric:tabular-nums}
+.stat .d{font-size:11px;color:var(--txt-3)}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.panel{background:var(--surface-1);border:1px solid var(--border-subtle);border-radius:10px;overflow:hidden}
+.panel-head{display:flex;align-items:center;gap:10px;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--border-subtle)}
+.panel-body{padding:14px}
+
+/* ---------------- tabs ---------------- */
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--border-subtle)}
+.tab{border:0;background:transparent;font:inherit;font-size:13px;font-weight:600;color:var(--txt-2);padding:9px 12px;border-bottom:2px solid transparent;margin-bottom:-1px}
+.tab:hover{color:var(--txt)}
+.tab[aria-selected="true"]{color:var(--brand);border-bottom-color:var(--brand)}
+
+/* ---------------- dialogs / drawer / toast / menu / tooltip -------- */
+.scrim{position:absolute;inset:0;background:var(--backdrop);display:grid;place-items:center;padding:24px;border-radius:0 0 10px 10px}
+.scrim.drawer{place-items:stretch;justify-items:end;padding:0}
+.dialog{width:min(460px,100%);background:var(--surface-1);border:1px solid var(--border-strong);border-radius:12px;box-shadow:var(--shadow-overlay);overflow:hidden}
+.dialog-head{padding:14px 16px;border-bottom:1px solid var(--border-subtle);display:flex;gap:10px;align-items:flex-start}
+.dialog-body{padding:16px;display:flex;flex-direction:column;gap:14px}
+.dialog-foot{padding:12px 16px;border-top:1px solid var(--border-subtle);display:flex;justify-content:flex-end;gap:8px;background:var(--surface-2)}
+.drawer-panel{width:min(380px,100%);height:100%;background:var(--surface-1);border-left:1px solid var(--border-strong);box-shadow:var(--shadow-overlay);display:flex;flex-direction:column}
+.toast{display:flex;gap:10px;align-items:flex-start;background:var(--surface-1);border:1px solid var(--border-strong);border-left:3px solid var(--brand);border-radius:9px;padding:11px 12px;box-shadow:var(--shadow-overlay);width:min(340px,100%)}
+.toast.green{border-left-color:var(--success)}
+.toast.amber{border-left-color:var(--warning)}
+.toast.red{border-left-color:var(--danger)}
+.toast .ic{margin-top:1px}
+.menu{background:var(--surface-1);border:1px solid var(--border-strong);border-radius:9px;box-shadow:var(--shadow-overlay);padding:5px;width:220px}
+.menu-item{display:flex;align-items:center;gap:9px;width:100%;border:0;background:transparent;font:inherit;font-size:13px;color:var(--txt-2);padding:7px 9px;border-radius:6px;text-align:left}
+.menu-item:hover{background:var(--layer-1);color:var(--txt)}
+.menu-item.danger{color:var(--danger-strong)}
+.menu-sep{height:1px;background:var(--border-subtle);margin:5px 4px}
+.menu-h{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--txt-3);padding:7px 9px 3px}
+.tooltip{background:var(--txt);color:var(--surface-1);font-size:11.5px;font-weight:500;padding:5px 9px;border-radius:6px;box-shadow:var(--shadow-200);max-width:220px}
+
+/* ---------------- skeleton / empty / offline ---------------- */
+.skel{background:linear-gradient(90deg,var(--layer-1) 25%,var(--layer-1-hover) 37%,var(--layer-1) 63%);background-size:400% 100%;animation:sk 1.4s ease infinite;border-radius:5px;height:12px}
+@keyframes sk{0%{background-position:100% 50%}100%{background-position:0 50%}}
+.empty{display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px;padding:34px 20px;color:var(--txt-2)}
+.empty .glyph{width:48px;height:48px;border-radius:14px;background:var(--brand-subtle);color:var(--brand);display:grid;place-items:center}
+.banner{display:flex;gap:10px;align-items:center;padding:10px 12px;border-radius:9px;border:1px solid var(--border-subtle);background:var(--layer-1);font-size:12.5px;color:var(--txt-2)}
+.banner.amber{background:var(--warning-subtle);border-color:transparent;color:var(--warning-strong)}
+.banner.red{background:var(--danger-subtle);border-color:transparent;color:var(--danger-strong)}
+.banner.blue{background:var(--brand-subtle);border-color:transparent;color:var(--brand)}
+
+/* ---------------- timer ---------------- */
+.timerbar{display:flex;align-items:center;gap:14px;padding:10px 14px;background:var(--surface-1);border-top:1px solid var(--border-subtle)}
+.timerbar.running{background:var(--brand-subtle);border-top-color:var(--brand)}
+.timer-clock{font-family:"IBM Plex Mono",monospace;font-size:22px;font-weight:600;letter-spacing:-0.02rem;font-variant-numeric:tabular-nums;color:var(--txt);min-width:96px}
+.timerbar.running .timer-clock{color:var(--brand)}
+.pulse{width:9px;height:9px;border-radius:50%;background:var(--success);box-shadow:0 0 0 0 var(--success);animation:pulse 1.6s infinite;flex:none}
+@keyframes pulse{70%{box-shadow:0 0 0 7px transparent}100%{box-shadow:0 0 0 0 transparent}}
+.timermini{display:flex;align-items:center;gap:7px;height:26px;padding:0 9px;border-radius:7px;background:var(--brand-subtle);color:var(--brand);font-size:12px;font-weight:600;font-variant-numeric:tabular-nums}
+.timermini .ic{width:13px;height:13px}
+
+/* ---------------- charts ---------------- */
+.chart{width:100%;height:auto;display:block;overflow:visible}
+.chart .axis{stroke:var(--border-subtle);stroke-width:1}
+.chart .gridline{stroke:var(--border-subtle);stroke-width:1;stroke-dasharray:2 4}
+.chart text{fill:var(--txt-3);font-size:10px;font-family:"Inter",sans-serif}
+.chart .bars rect{fill:var(--brand)}
+.chart .bars rect.over{fill:var(--danger)}
+.chart .burnline{fill:none;stroke:var(--warning-strong);stroke-width:2;stroke-dasharray:4 4}
+.chart .spent{fill:none;stroke:var(--brand);stroke-width:2.5}
+.chart .budgetline{stroke:var(--danger);stroke-width:1.5;stroke-dasharray:3 3}
+.spark{display:flex;align-items:flex-end;gap:2px;height:22px}
+.spark i{width:4px;border-radius:2px 2px 0 0;background:var(--brand);opacity:.35}
+.spark i.hi{opacity:1}
+
+/* ---------------- misc product bits ---------------- */
+.kbd{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 5px;border-radius:5px;border:1px solid var(--border-strong);border-bottom-width:2px;background:var(--surface-1);font-size:11px;font-family:"IBM Plex Mono",monospace;color:var(--txt-2)}
+.rate-cascade{display:flex;flex-direction:column;gap:0}
+.rate-step{display:flex;align-items:center;gap:10px;padding:9px 0}
+.rate-step + .rate-step{border-top:1px dashed var(--border-subtle)}
+.rate-step .lvl{width:74px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--txt-3)}
+.rate-step.win .lvl{color:var(--brand)}
+.rate-step.win{background:var(--brand-subtle);margin:0 -8px;padding:9px 8px;border-radius:8px}
+.entry{display:grid;grid-template-columns:88px 1fr 86px 96px 70px 28px;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid var(--border-subtle);font-size:12.5px}
+.entry:last-child{border-bottom:0}
+.entry .date{color:var(--txt-3);font-variant-numeric:tabular-nums}
+.entry .wi{color:var(--txt);font-weight:600}
+.entry .amt{text-align:right;font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums}
+.wi-ref{font-size:11px;font-weight:700;color:var(--txt-3);font-family:"IBM Plex Mono",monospace}
+.hist{display:flex;flex-direction:column;gap:0}
+.hist-item{display:grid;grid-template-columns:14px 1fr;gap:10px;padding:8px 0}
+.hist-rail{position:relative;display:flex;justify-content:center}
+.hist-rail::before{content:"";position:absolute;top:14px;bottom:-8px;width:1.5px;background:var(--border-subtle)}
+.hist-item:last-child .hist-rail::before{display:none}
+.hist-dot{width:9px;height:9px;border-radius:50%;background:var(--brand);margin-top:4px;z-index:1;box-shadow:0 0 0 3px var(--surface-1)}
+.consent-row{display:flex;gap:12px;align-items:flex-start;padding:12px;border:1px solid var(--border-subtle);border-radius:9px}
+.consent-row .glyph{width:32px;height:32px;border-radius:9px;background:var(--layer-1);display:grid;place-items:center;color:var(--txt-2);flex:none}
+.suggest{display:flex;flex-direction:column;gap:10px}
+.suggest-row{display:grid;grid-template-columns:minmax(0,1fr) 150px 96px auto;gap:10px;align-items:center;padding:11px;border:1px solid var(--border-subtle);border-radius:9px;background:var(--surface-1)}
+.conf{display:flex;align-items:center;gap:7px}
+.conf .meter{flex:1;height:6px;border-radius:99px;background:var(--layer-1);overflow:hidden}
+.conf .meter i{display:block;height:100%;background:var(--success)}
+.conf.med .meter i{background:var(--warning)}
+.conf.low .meter i{background:var(--txt-3)}
+.tray{width:300px;background:var(--surface-1);border:1px solid var(--border-strong);border-radius:11px;box-shadow:var(--shadow-overlay);overflow:hidden}
+.tray-head{padding:11px 13px;border-bottom:1px solid var(--border-subtle);display:flex;align-items:center;gap:9px;background:var(--surface-2)}
+.notif{display:flex;gap:10px;padding:11px 13px;border-bottom:1px solid var(--border-subtle)}
+.notif:last-child{border-bottom:0}
+.notif .glyph{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;flex:none}
+.notif.green .glyph{background:var(--success-subtle);color:var(--success-strong)}
+.notif.amber .glyph{background:var(--warning-subtle);color:var(--warning-strong)}
+.notif.red .glyph{background:var(--danger-subtle);color:var(--danger-strong)}
+.notif.blue .glyph{background:var(--brand-subtle);color:var(--brand)}
+.win-list{display:grid;gap:10px}
+.wm{display:flex;align-items:center;gap:9px;font-size:12px;color:var(--txt-3)}
+.wm::before,.wm::after{content:"";height:1px;background:var(--border-subtle);flex:1}
+.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
+.swatch{border:1px solid var(--border-subtle);border-radius:9px;overflow:hidden}
+.swatch .chip{height:44px}
+.swatch .meta{padding:7px 9px;font-size:11px;color:var(--txt-2)}
+.swatch .meta b{display:block;color:var(--txt);font-size:12px}
+.stategrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px}
+.statebox{border:1px dashed var(--border-strong);border-radius:9px;padding:12px;display:flex;flex-direction:column;gap:9px;background:var(--surface-1)}
+.statebox .cap{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--txt-3)}
+.spec{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px}
+.spec h3{margin-bottom:6px}
+.spec ul{margin:0;padding-left:16px;color:var(--txt-2);font-size:12.5px}
+.spec li{margin:4px 0}
+.doc h2{margin:26px 0 4px;padding-top:8px}
+.doc h3{margin:18px 0 6px}
+.doc .lede{font-size:13px;color:var(--txt-2);max-width:70ch}
+.doc code{font-family:"IBM Plex Mono",monospace;font-size:12px;background:var(--layer-1);padding:1px 5px;border-radius:4px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:12.5px}
+.kv dt{color:var(--txt-3)}
+.kv dd{margin:0;color:var(--txt)}
+
+/* ---------------- index page ---------------- */
+.hero{padding:40px 0 8px}
+.hero .lead{font-size:17px;color:var(--txt-2);max-width:74ch;line-height:1.65}
+.eyebrow{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--brand)}
+.inv-card{display:flex;flex-direction:column;gap:8px;padding:16px;border:1px solid var(--border-subtle);border-radius:10px;background:var(--surface-1);height:100%}
+.inv-card:hover{border-color:var(--brand);text-decoration:none}
+.inv-card .top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.inv-card h3{font-size:15px}
+.inv-card p{font-size:12.5px;color:var(--txt-2);margin:0}
+.inv-card .states{font-size:11px;color:var(--txt-3);border-top:1px solid var(--border-subtle);padding-top:8px;margin-top:auto}
+.wrap-980{margin:0 auto;padding:0 18px 60px}
+.wrap-1160{margin:0 auto;padding:0 18px 60px;max-width:1160px}
+.pill{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:999px;font-size:11.5px;font-weight:600;background:var(--layer-1);color:var(--txt-2);border:1px solid var(--border-subtle)}
+
+@media (max-width:1000px){
+  .appbody{grid-template-columns:1fr}
+  .sidebar{display:none}
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .suggest-row{grid-template-columns:1fr 1fr}
+  .entry{grid-template-columns:70px 1fr 80px 90px;gap:8px}
+  .entry .col-hide,.entry .col-amt{display:none}
+}
+@media (max-width:640px){
+  .content{padding:13px}
+  .topbar{padding:0 13px;height:auto;min-height:52px;flex-wrap:wrap;padding-top:8px;padding-bottom:8px}
+  .stats{grid-template-columns:1fr}
+  .win{margin:10px 8px;border-radius:8px}
+  .timerbar{flex-wrap:wrap;gap:10px}
+  h1{font-size:20px}
+  .table-wrap{border-radius:8px}
+  .ds-tools .pill{display:none}
+}
+/* accessibility corrections: verified token pairs, solid-action tokens and containment */
+:root{
+  --warning-strong:oklch(0.4747 0.135757 44.9806);
+  --danger-solid:oklch(0.5095 0.208583 28.513);
+  --danger-solid-hover:oklch(0.4446 0.1774 26.79);
+  --on-danger:#fff;
+  --brand-solid:oklch(0.4799 0.1158 242.91);
+  --brand-solid-hover:oklch(0.4347 0.104093 242.4823);
+  --brand-solid-active:oklch(0.3399 0.0783 240.32);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --warning-strong:oklch(0.8781 0.1688 91.86);
+  --danger-solid:oklch(0.4446 0.1774 26.79);
+  --danger-solid-hover:oklch(0.5095 0.208583 28.513);
+  --brand-solid:oklch(0.42 0.09 238);
+  --brand-solid-hover:oklch(0.45 0.1 238);
+  --brand-solid-active:oklch(0.37 0.08 238);
+}}
+:root[data-theme="dark"]{
+  --warning-strong:oklch(0.8781 0.1688 91.86);
+  --danger-solid:oklch(0.4446 0.1774 26.79);
+  --danger-solid-hover:oklch(0.5095 0.208583 28.513);
+  --brand-solid:oklch(0.42 0.09 238);
+  --brand-solid-hover:oklch(0.45 0.1 238);
+  --brand-solid-active:oklch(0.37 0.08 238);
+}
+.btn.primary{background:var(--brand-solid);color:var(--on-brand)}
+.btn.primary:hover{background:var(--brand-solid-hover)}
+.btn.primary:active{background:var(--brand-solid-active)}
+.btn.primary:disabled{background:var(--brand-solid)}
+.btn.danger{background:var(--danger-solid);color:var(--on-danger)}
+.btn.danger:hover{background:var(--danger-solid-hover)}
+.wc.close:hover{background:var(--danger-solid);color:var(--on-danger)}
+.avatar{background:var(--brand-solid)}
+.nav-item{background:transparent;border:0;font:inherit;cursor:pointer;width:100%;text-align:left}
+.win{max-width:100%}
+.titlebar{min-width:0;overflow:hidden}
+.tb-title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.tb-actions{flex:none}
+.content,.panel,.panel-body,.table-wrap,.row{min-width:0}
+@media (min-width:1001px){.appbody{grid-template-columns:236px minmax(0,1fr)}}
+@media (max-width:1000px){.appbody{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:700px){
+  .grid{grid-template-columns:minmax(0,1fr)!important}
+  .stats{grid-template-columns:minmax(0,1fr)}
+  .spec{grid-template-columns:minmax(0,1fr)}
+  .suggest-row{grid-template-columns:minmax(0,1fr)}
+  .stategrid{grid-template-columns:minmax(0,1fr)!important}
+  .statebox{grid-column:auto!important}
+}
+.stategrid{grid-template-columns:repeat(auto-fill,minmax(min(100%,268px),1fr))}
+.statebox .timerbar{flex-wrap:wrap}
+@media (max-width:560px){.tb-dots,.timermini{display:none}}
+/* ---------- v2 refinements ---------- */
+.timerbar{flex-wrap:wrap;row-gap:10px}
+.timerbar .grow.truncate{min-width:120px}
+.timerbar-showcase{display:flex;flex-direction:column;gap:14px}
+.tray-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start}
+.tray{width:100%;max-width:none}
+@media (max-width:840px){.tray-grid{grid-template-columns:minmax(0,1fr)}}
+/* duration entry */
+.dur-row{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}
+.dur-chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.dur-chip{border:1px dashed var(--border-strong);background:var(--surface-1);color:var(--txt-2);border-radius:999px;padding:3px 10px;font-size:11.5px;font-weight:600;cursor:pointer;font-family:inherit}
+.dur-chip:hover{background:var(--layer-1);color:var(--txt)}
+.dur-parse{font-size:11.5px;color:var(--txt-3)}
+.dur-parse b{color:var(--brand);font-family:"IBM Plex Mono",monospace}
+.dur-rules{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:12.5px}
+.dur-rules dt{font-family:"IBM Plex Mono",monospace;color:var(--txt);font-weight:600}
+.dur-rules dd{margin:0;color:var(--txt-2)}
+/* financial model */
+.fin-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.fin{background:var(--surface-1);border:1px solid var(--border-subtle);border-radius:10px;padding:12px 13px;display:flex;flex-direction:column;gap:3px}
+.fin .k{font-size:11px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;color:var(--txt-3)}
+.fin .v{font-size:20px;font-weight:700;letter-spacing:-.03rem;font-variant-numeric:tabular-nums}
+.fin .formula{font-size:11px;color:var(--txt-3);font-family:"IBM Plex Mono",monospace}
+.fin.pos .v{color:var(--success-strong)}
+.fin.neg .v{color:var(--danger-strong)}
+.fin.accent{border-color:var(--brand);background:var(--brand-subtle)}
+.fin.accent .k,.fin.accent .formula{color:var(--brand)}
+.fin.accent .v{color:var(--brand)}
+.targets{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.target{border:1px solid var(--border-subtle);border-radius:10px;padding:13px;background:var(--surface-1)}
+.target .owner{font-size:11px;color:var(--txt-3)}
+.glossary{display:grid;gap:10px;margin:0}
+.glossary dt{font-weight:700;color:var(--txt)}
+.glossary dd{margin:2px 0 0;color:var(--txt-2);font-size:12.5px}
+.iconrow{display:flex;gap:6px;align-items:center;justify-content:flex-end}
+.membertag{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--txt-3)}
+.costcommercial{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media (max-width:640px){.costcommercial{grid-template-columns:minmax(0,1fr)}}
+</style>
+</head>
+<body class="doc-page">
+<a class="skip" href="#main">Skip to content</a>
+<header class="ds-frame">
+  <span class="ds-brand"><span class="ds-mark" aria-hidden="true"><svg width='14' height='14'><use href='#i-clock'/></svg></span>Airtime <span class="muted" style="font-weight:500">design</span></span>
+  <nav class="ds-nav" aria-label="Design pages"><a href="index.html">Overview</a><a href="foundation.html">Foundation</a><a href="components.html" aria-current="page">Core components</a><a href="shell.html">Desktop shell</a><a href="time-tracking.html">Time tracking</a><a href="projects-budgets.html">Projects & budgets</a><a href="admin-onboarding.html">Admin & onboarding</a><a href="future-features.html">Future features</a><a href="prototype.html">Clickable prototype</a></nav>
+  <span class="ds-tools">
+    <span class="pill" title="Reviewer note">AIRTIME-18</span>
+    <span class="pill" title="Design version">v2</span>
+    <a class="pill" href="../v1/index.html" title="Compare with version 1">v1</a>
+    <button class="themebtn" data-theme-set="light" type="button" aria-pressed="false"><svg class="ic sm" aria-hidden="true"><use href="#i-sun"/></svg>Light</button>
+    <button class="themebtn" data-theme-set="dark" type="button" aria-pressed="false"><svg class="ic sm" aria-hidden="true"><use href="#i-moon"/></svg>Dark</button>
+  </span>
+</header>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+<symbol id="i-play" viewBox="0 0 24 24"><path d="m7 4 12 8-12 8z"/></symbol>
+<symbol id="i-pause" viewBox="0 0 24 24"><path d="M9 4H6v16h3zM18 4h-3v16h3z"/></symbol>
+<symbol id="i-stop" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2"/></symbol>
+<symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="i-chev-r" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+<symbol id="i-chev-d" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="m5 13 4 4 10-10"/></symbol>
+<symbol id="i-check-c" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></symbol>
+<symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+<symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+<symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.4-2.3 1a7 7 0 0 0-1.7-1L14.5 3h-4l-.4 2.6a7 7 0 0 0-1.7 1l-2.3-1-2 3.4L6 11a7 7 0 0 0 0 2l-2 1.5 2 3.4 2.3-1a7 7 0 0 0 1.7 1l.4 2.6h4l.4-2.6a7 7 0 0 0 1.7-1l2.3 1 2-3.4-2-1.5c.1-.3.1-.7.1-1z"/></symbol>
+<symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M3 20a6 6 0 0 1 12 0M16 4.5a3.5 3.5 0 0 1 0 7M21 20a6 6 0 0 0-4-5.6"/></symbol>
+<symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+<symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></symbol>
+<symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></symbol>
+<symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 20V9m0 0 4 4m-4-4-4 4M5 5h14"/></symbol>
+<symbol id="i-alert-t" viewBox="0 0 24 24"><path d="M12 4 2.5 20h19z"/><path d="M12 10v4M12 17.5v.01"/></symbol>
+<symbol id="i-alert-c" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16v.01"/></symbol>
+<symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8v.01"/></symbol>
+<symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5 19 19M19 5l-1.5 1.5M6.5 17.5 5 19"/></symbol>
+<symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></symbol>
+<symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 9a6 6 0 0 1 12 0c0 6 2 7 2 7H4s2-1 2-7M10 20a2 2 0 0 0 4 0"/></symbol>
+<symbol id="i-calendar" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="16" rx="2"/><path d="M4 9h16M8 3v4M16 3v4"/></symbol>
+<symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/></symbol>
+<symbol id="i-pencil" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16zM14 6l4 4"/></symbol>
+<symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13M10 11v6M14 11v6"/></symbol>
+<symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 7 5 11l4 4M5 11h9a5 5 0 0 1 0 10h-1"/></symbol>
+<symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14-4L4 9m0-5v5h5M4 13a8 8 0 0 0 14 4l2-2m0 5v-5h-5"/></symbol>
+<symbol id="i-link" viewBox="0 0 24 24"><path d="M9 15l6-6M10.5 6.5 12 5a3.5 3.5 0 0 1 5 5l-1.5 1.5M13.5 17.5 12 19a3.5 3.5 0 0 1-5-5l1.5-1.5"/></symbol>
+<symbol id="i-wifi-off" viewBox="0 0 24 24"><path d="M3 3l18 18M8.5 12.5a5 5 0 0 1 5-.5M5 9.5A11 11 0 0 1 8 8m4-1a11 11 0 0 1 7 2.5M2 6.5A15 15 0 0 1 5 5M12 19.5v.01"/></symbol>
+<symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol>
+<symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="2.5"/></symbol>
+<symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M3 3l18 18M10 5.2A10 10 0 0 1 22 12a17 17 0 0 1-2.4 3M6.5 6.7A16 16 0 0 0 2 12s3.5 6 10 6a10 10 0 0 0 4-.8"/></symbol>
+<symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="m9 12 2 2 4-4"/></symbol>
+<symbol id="i-activity" viewBox="0 0 24 24"><path d="M3 12h4l2.5-7 4 14 2.5-7h5"/></symbol>
+<symbol id="i-sparkles" viewBox="0 0 24 24"><path d="M12 3l1.7 4.3L18 9l-4.3 1.7L12 15l-1.7-4.3L6 9l4.3-1.7zM19 14l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8zM5 15l.6 1.5L7 17l-1.4.5L5 19l-.6-1.5L3 17l1.4-.5z"/></symbol>
+<symbol id="i-chart" viewBox="0 0 24 24"><path d="M5 20V10M12 20V4M19 20v-7"/></symbol>
+<symbol id="i-wallet" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M16 14h2"/></symbol>
+<symbol id="i-dot" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/></symbol>
+<symbol id="i-filter" viewBox="0 0 24 24"><path d="M4 5h16l-6 7v6l-4 2v-8z"/></symbol>
+<symbol id="i-arrow-up" viewBox="0 0 24 24"><path d="M12 19V5m0 0-6 6m6-6 6 6"/></symbol>
+<symbol id="i-arrow-down" viewBox="0 0 24 24"><path d="M12 5v14m0 0 6-6m-6 6-6-6"/></symbol>
+<symbol id="i-drag" viewBox="0 0 24 24"><circle cx="9" cy="6" r="1.4"/><circle cx="15" cy="6" r="1.4"/><circle cx="9" cy="12" r="1.4"/><circle cx="15" cy="12" r="1.4"/><circle cx="9" cy="18" r="1.4"/><circle cx="15" cy="18" r="1.4"/></symbol>
+<symbol id="i-window" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M7 6.5v.01M10 6.5v.01"/></symbol>
+<symbol id="i-min" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+<symbol id="i-max" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1.5"/></symbol>
+<symbol id="i-export" viewBox="0 0 24 24"><path d="M12 15V4m0 0 4 4m-4-4-4 4M5 14v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"/></symbol>
+</defs></svg>
+
+<main id="main" class="wrap-1160 doc">
+  <div class="hero">
+    <div class="eyebrow">AIRTIME-18 · Core components and states</div>
+    <h1 class="mt-8">Components, every state</h1>
+    <p class="lead">Each component renders default, hover, focus, active, disabled, loading, error and empty where the state applies. Use Light/Dark in the bar above to check theming. Nothing below carries a hard-coded colour.</p>
+  </div>
+
+  <h2>Buttons</h2>
+  <p class="lede">One primary per screen (usually Start/Stop or Save). Destructive actions never take the primary slot.</p>
+  <div class="stategrid mt-16">
+    <div class="statebox"><span class="cap">Primary</span>
+      <div class="row wrap">
+        <button class="btn primary">Save changes</button>
+        <button class="btn primary" style="background:var(--brand-hover)">Hover</button>
+        <button class="btn primary" style="outline:2px solid var(--focus);outline-offset:2px">Focus</button>
+        <button class="btn primary" style="background:var(--brand-active)">Active</button>
+      </div>
+      <div class="row wrap">
+        <button class="btn primary" disabled>Disabled</button>
+        <button class="btn primary loading"><span class="spinner" aria-hidden="true"></span>Saving</button>
+      </div>
+    </div>
+    <div class="statebox"><span class="cap">Secondary / outline / ghost</span>
+      <div class="row wrap">
+        <button class="btn">Back-fill time</button>
+        <button class="btn outline">Cancel</button>
+        <button class="btn ghost"><svg class="ic sm" aria-hidden="true"><use href="#i-filter"/></svg>Filter</button>
+      </div>
+      <div class="row wrap">
+        <button class="btn" disabled>Disabled</button>
+        <button class="btn loading"><span class="spinner" aria-hidden="true"></span>Loading</button>
+      </div>
+    </div>
+    <div class="statebox"><span class="cap">Danger, icon and sizes</span>
+      <div class="row wrap">
+        <button class="btn danger">Delete entry</button>
+        <button class="btn danger-ghost">Undo delete</button>
+        <button class="btn icon" aria-label="More actions"><svg class="ic" aria-hidden="true"><use href="#i-more"/></svg></button>
+      </div>
+      <div class="row wrap">
+        <button class="btn sm">Small</button>
+        <button class="btn">Default</button>
+        <button class="btn lg">Large</button>
+      </div>
+    </div>
+    <div class="statebox"><span class="cap">Button group</span>
+      <div class="btn-group"><button class="btn">Day</button><button class="btn">Week</button><button class="btn" style="background:var(--layer-1-active)">Month</button></div>
+      <span class="hint">Joined controls share one border; the selected segment carries aria-pressed.</span>
+    </div>
+  </div>
+
+  <h2>Text fields</h2>
+  <div class="stategrid mt-16">
+    <div class="statebox"><span class="cap">Default / hover / focus</span>
+      <div class="field"><label class="label" for="c-d">Work item</label><input class="input" id="c-d" value="AV-142 Pre-flight checklist"></div>
+      <div class="field"><label class="label" for="c-h">Project</label><input class="input" id="c-h" value="Northwind Platform" style="border-color:var(--border-heavy)"></div>
+      <div class="field"><label class="label" for="c-f">Duration</label><input class="input" id="c-f" value="01:30" style="outline:2px solid var(--focus);outline-offset:1px;border-color:var(--brand)"></div>
+    </div>
+    <div class="statebox"><span class="cap">Error / disabled / hint</span>
+      <div class="field"><label class="label" for="c-e">Duration</label><input class="input mono" id="c-e" value="banana" aria-invalid="true" aria-describedby="c-e-err"><span class="err" id="c-e-err"><svg class="ic sm" aria-hidden="true"><use href="#i-alert-c"/></svg>Not a duration. Try 1h 30m, 90m, 1d or 1w.</span></div>
+      <div class="field"><label class="label" for="c-x">Member rate</label><input class="input" id="c-x" value="120.00" disabled><span class="hint">Locked: the manager role is required to edit rates.</span></div>
+    </div>
+    <div class="statebox"><span class="cap">Select / search / date</span>
+      <div class="field"><label class="label" for="c-s">Currency</label><select class="select" id="c-s"><option>EUR — Euro</option><option>USD — US Dollar</option><option>GBP — Pound Sterling</option></select></div>
+      <div class="field"><label class="label" for="c-q">Search work items</label><span class="input-wrap"><svg class="ic sm" aria-hidden="true"><use href="#i-search"/></svg><input class="input" id="c-q" placeholder="Search by title or AV-number"></span></div>
+      <div class="field"><label class="label" for="c-date">Date</label><span class="input-wrap"><svg class="ic sm" aria-hidden="true"><use href="#i-calendar"/></svg><input class="input" id="c-date" type="date" value="2026-09-23"></span></div>
+    </div>
+    <div class="statebox"><span class="cap">Textarea</span>
+      <div class="field"><label class="label" for="c-t">Note (optional)</label><textarea class="textarea" id="c-t">Investigated the scheduling edge case and paired with Sam on the retry logic.</textarea><span class="hint">Visible to managers on the timesheet.</span></div>
+    </div>
+  </div>
+
+  <h2>Duration input</h2>
+  <p class="lede">A single duration control used wherever time is entered. People type "1h 30m", "1d" or "1w"; the parser resolves it and the value is echoed back in mono so there is no ambiguity. A day is 8 hours and a week is 40 hours.</p>
+  <div class="stategrid mt-16">
+    <div class="statebox"><span class="cap">Default with parsed preview</span>
+      <div class="field"><label class="label" for="ci-du">Duration</label><input class="input mono" id="ci-du" value="1h 30m" aria-describedby="ci-du-p"><span class="dur-parse" id="ci-du-p">= <b>01:30:00</b> · 1.5 hours</span></div>
+      <div class="dur-chips" role="group" aria-label="Quick durations"><button class="dur-chip" type="button">30m</button><button class="dur-chip" type="button">1h</button><button class="dur-chip" type="button">1h 30m</button><button class="dur-chip" type="button">1d</button><button class="dur-chip" type="button">1w</button><button class="dur-chip" type="button">+15m</button></div>
+    </div>
+    <div class="statebox"><span class="cap">Invalid</span>
+      <div class="field"><label class="label" for="ci-du2">Duration</label><input class="input mono" id="ci-du2" value="1h 3" aria-invalid="true" aria-describedby="ci-du2-err"><span class="err" id="ci-du2-err"><svg class="ic sm" aria-hidden="true"><use href="#i-alert-c"/></svg>Not a duration. Try 1h 30m, 90m, 1d or 1w.</span></div>
+      <span class="hint">The field keeps the text so the user can fix it; save stays blocked.</span>
+    </div>
+    <div class="statebox"><span class="cap">Disabled</span>
+      <div class="field"><label class="label" for="ci-du3">Duration</label><input class="input mono" id="ci-du3" value="8h" disabled><span class="hint">Locked after invoicing.</span></div>
+    </div>
+    <div class="statebox"><span class="cap">Accepted formats</span>
+      <dl class="dur-rules">
+        <dt>1h 30m</dt><dd>1 hour 30 minutes</dd>
+        <dt>90m</dt><dd>90 minutes</dd>
+        <dt>2h</dt><dd>2 hours</dd>
+        <dt>1d</dt><dd>1 day = 8 hours</dd>
+        <dt>1w</dt><dd>1 week = 40 hours</dd>
+        <dt>+15m</dt><dd>adds to the current value</dd>
+      </dl>
+    </div>
+  </div>
+
+  <h2>Selection controls</h2>
+  <div class="stategrid mt-16">
+    <div class="statebox"><span class="cap">Checkbox</span>
+      <label class="check"><input type="checkbox" checked><span>Billable<small class="hint" style="display:block">Counts toward budget spend</small></span></label>
+      <label class="check"><input type="checkbox"><span>Include in estimate</span></label>
+      <label class="check"><input type="checkbox" disabled><span class="muted">Locked after invoicing</span></label>
+    </div>
+    <div class="statebox"><span class="cap">Radio</span>
+      <label class="check"><input type="radio" name="cr" checked><span>Time &amp; materials</span></label>
+      <label class="check"><input type="radio" name="cr"><span>Fixed price <span class="badge grey">not v1</span></span></label>
+      <label class="check"><input type="radio" name="cr" disabled><span class="muted">Retainer <span class="badge grey">not v1</span></span></label>
+    </div>
+    <div class="statebox"><span class="cap">Switch</span>
+      <label class="switch"><input type="checkbox" checked><span class="small">Start timer on work item open</span></label>
+      <label class="switch"><input type="checkbox"><span class="small">Desktop notifications</span></label>
+      <label class="switch"><input type="checkbox" disabled><span class="small muted">Auto-logging (needs consent)</span></label>
+    </div>
+    <div class="statebox"><span class="cap">Segmented</span>
+      <div class="seg" role="group" aria-label="Timesheet range"><button aria-pressed="true">Week</button><button aria-pressed="false">Month</button><button aria-pressed="false">Custom</button></div>
+      <span class="hint">Roving focus; arrow keys move between segments.</span>
+    </div>
+  </div>
+
+  <h2>Status: badges, flags and priority</h2>
+  <p class="lede">Budget health is never colour-only. Every flag carries an icon and a word, so it survives greyscale and colour-blind viewing.</p>
+  <div class="grid" style="grid-template-columns:1fr 1fr;align-items:start">
+    <div class="panel"><div class="panel-body stack">
+      <div><span class="tiny cap">Budget health</span><div class="row wrap mt-8">
+        <span class="flag green"><svg class="ic" aria-hidden="true"><use href="#i-check-c"/></svg>On track · 42% used</span>
+        <span class="flag amber"><svg class="ic" aria-hidden="true"><use href="#i-alert-t"/></svg>Low budget · 8% left</span>
+        <span class="flag red"><svg class="ic" aria-hidden="true"><use href="#i-alert-c"/></svg>Overspent · 112% used</span>
+        <span class="flag blue"><svg class="ic" aria-hidden="true"><use href="#i-info"/></svg>No budget set</span>
+      </div></div>
+      <hr class="divider">
+      <div><span class="tiny cap">Entry source and billing</span><div class="row wrap mt-8">
+        <span class="badge blue"><span class="dot"></span>Timer</span>
+        <span class="badge grey"><span class="dot"></span>Manual</span>
+        <span class="badge"><span class="dot"></span>Inferred</span>
+        <span class="badge green"><span class="dot"></span>Billable</span>
+        <span class="badge outline"><span class="dot"></span>Uncosted</span>
+        <span class="badge amber"><span class="dot"></span>Queued offline</span>
+      </div></div>
+      <hr class="divider">
+      <div><span class="tiny cap">Priority and counts</span><div class="row wrap mt-8">
+        <span class="prio urgent"><span class="bars"><i></i><i></i><i></i></span>Urgent</span>
+        <span class="prio high"><span class="bars"><i></i><i></i><i></i></span>High</span>
+        <span class="prio medium"><span class="bars"><i></i><i></i><i></i></span>Medium</span>
+        <span class="prio low"><span class="bars"><i></i><i></i><i></i></span>Low</span>
+        <span class="badge grey">7 entries</span>
+      </div></div>
+    </div></div>
+    <div class="panel"><div class="panel-body stack">
+      <h3>Badge tone</h3>
+      <div class="row wrap"><span class="badge">Neutral</span><span class="badge green">Success</span><span class="badge amber">Warning</span><span class="badge red">Danger</span><span class="badge blue">Accent</span><span class="badge outline">Outline</span></div>
+      <h3 class="mt-8">Progress and budget bar</h3>
+      <div class="stack" style="gap:14px">
+        <div><div class="row between"><span class="small sub">Northwind Platform</span><span class="small mono">EUR 18,400 / 32,000</span></div><div class="bar green mt-4"><i style="width:57%"></i><span class="proj" style="left:62%" title="Projected at current burn"></span></div></div>
+        <div><div class="row between"><span class="small sub">Aviation Ops</span><span class="small mono">EUR 29,440 / 32,000</span></div><div class="bar amber lg mt-4"><i style="width:92%"></i><span class="proj" style="left:104%"></span></div></div>
+        <div><div class="row between"><span class="small sub">Ground Systems</span><span class="small mono">EUR 41,180 / 36,000</span></div><div class="bar red lg mt-4"><i style="width:100%"></i></div></div>
+      </div>
+      <div class="legend mt-4"><span><i style="background:var(--brand)"></i>Spent</span><span><i style="background:var(--txt-3)"></i>Projection</span><span><i style="background:var(--danger)"></i>Over budget cap</span></div>
+    </div></div>
+  </div>
+
+  <h2>Timer control</h2>
+  <div class="stategrid mt-16">
+    <div class="statebox"><span class="cap">Stopped</span>
+      <div class="timerbar" style="border:1px solid var(--border-subtle);border-radius:9px">
+        <button class="btn primary"><svg class="ic" aria-hidden="true"><use href="#i-play"/></svg>Start</button>
+        <span class="timer-clock muted">00:00:00</span>
+      </div>
+    </div>
+    <div class="statebox"><span class="cap">Running</span>
+      <div class="timerbar running" style="border:1px solid var(--brand);border-radius:9px">
+        <span class="pulse" aria-hidden="true"></span>
+        <span class="timer-clock" role="timer" aria-label="Elapsed time 1 hour 24 minutes 5 seconds">01:24:05</span>
+        <button class="btn danger"><svg class="ic" aria-hidden="true"><use href="#i-stop"/></svg>Stop</button>
+      </div>
+      <span class="hint">Role timer and a static aria-label; the pulse is decorative.</span>
+    </div>
+    <div class="statebox"><span class="cap">Paused</span>
+      <div class="timerbar" style="border:1px solid var(--border-subtle);border-radius:9px">
+        <span class="flag amber"><svg class="ic" aria-hidden="true"><use href="#i-pause"/></svg>Paused</span>
+        <span class="timer-clock">01:24:05</span>
+        <button class="btn"><svg class="ic" aria-hidden="true"><use href="#i-play"/></svg>Resume</button>
+      </div>
+    </div>
+    <div class="statebox"><span class="cap">Sync error</span>
+      <div class="banner red"><svg class="ic" aria-hidden="true"><use href="#i-wifi-off"/></svg>Saved locally. Will sync when Plane is reachable.</div>
+      <div class="row"><span class="badge amber"><span class="dot"></span>1 entry queued</span><button class="btn sm">Retry now</button></div>
+    </div>
+  </div>
+
+  <h2>Table, tabs and menus</h2>
+  <div class="grid" style="grid-template-columns:1.4fr 1fr;align-items:start">
+    <div class="panel">
+      <div class="panel-head"><h3>Recent entries</h3><button class="btn sm ghost">View all</button></div>
+      <div class="table-wrap" style="border:0;border-radius:0">
+        <table class="table"><thead><tr><th>Date</th><th>Work item</th><th class="num">Duration</th><th>Source</th><th class="num">Cost</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">23 Sep</td><td class="name">AV-142 Pre-flight checklist</td><td class="num">01:30</td><td><span class="badge blue"><span class="dot"></span>Timer</span></td><td class="num">EUR 180</td></tr>
+          <tr><td class="mono">23 Sep</td><td class="name">AV-138 Weather feed retry</td><td class="num">00:45</td><td><span class="badge grey"><span class="dot"></span>Manual</span></td><td class="num">EUR 90</td></tr>
+          <tr class="warn-row"><td class="mono">22 Sep</td><td class="name">AV-131 Ground systems audit</td><td class="num">02:15</td><td><span class="badge grey"><span class="dot"></span>Manual</span></td><td class="num">EUR 270</td></tr>
+          <tr><td class="mono">22 Sep</td><td class="name">Internal — sprint planning</td><td class="num">00:30</td><td><span class="badge outline"><span class="dot"></span>Uncosted</span></td><td class="num muted">—</td></tr>
+        </tbody></table>
+      </div>
+    </div>
+    <div class="stack">
+      <div class="panel"><div class="panel-body">
+        <div class="tabs" role="tablist" aria-label="Entry views">
+          <button class="tab" role="tab" aria-selected="true">List</button>
+          <button class="tab" role="tab" aria-selected="false">Timesheet</button>
+          <button class="tab" role="tab" aria-selected="false">History</button>
+        </div>
+        <p class="small sub mt-12">Tab panels keep the selected tab in the DOM with <code>aria-controls</code>; arrow keys move focus.</p>
+      </div></div>
+      <div class="panel"><div class="panel-body">
+        <h3>Menu</h3>
+        <div class="menu mt-8">
+          <div class="menu-h">Entry</div>
+          <button class="menu-item"><svg class="ic sm" aria-hidden="true"><use href="#i-pencil"/></svg>Edit entry</button>
+          <button class="menu-item"><svg class="ic sm" aria-hidden="true"><use href="#i-dot"/></svg>Split entry</button>
+          <div class="menu-sep"></div>
+          <button class="menu-item danger"><svg class="ic sm" aria-hidden="true"><use href="#i-trash"/></svg>Delete entry</button>
+        </div>
+      </div></div>
+      <div class="tooltip" role="tooltip">Projected cost at the current burn rate, in the reporting currency.</div>
+    </div>
+  </div>
+
+  <h2>Dialogs, drawer, toast</h2>
+  <div class="stategrid mt-16">
+    <div class="statebox" style="grid-column:span 2">
+      <span class="cap">Confirmation dialog — destructive</span>
+      <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dd-t" style="width:100%">
+        <div class="dialog-head">
+          <span class="glyph" style="width:32px;height:32px;border-radius:9px;background:var(--danger-subtle);color:var(--danger-strong);display:grid;place-items:center"><svg class="ic" aria-hidden="true"><use href="#i-alert-t"/></svg></span>
+          <span class="grow"><span class="strong" style="display:block" id="dd-t">Delete this entry?</span><span class="small sub">AV-142, 23 Sep, 01:30. Time logged will be removed from the budget.</span></span>
+        </div>
+        <div class="dialog-body"><div class="check"><input type="checkbox" id="dd-c"><label for="dd-c" class="small">I understand this cannot be undone</label></div></div>
+        <div class="dialog-foot"><button class="btn outline">Cancel</button><button class="btn danger" disabled>Delete entry</button></div>
+      </div>
+    </div>
+    <div class="statebox">
+      <span class="cap">Drawer</span>
+      <div style="height:180px;position:relative;overflow:hidden;border:1px solid var(--border-subtle);border-radius:9px;background:var(--canvas)">
+        <div class="drawer-panel" style="position:absolute;inset:0 0 0 auto">
+          <div class="panel-head"><h3>Entry history</h3><button class="btn icon sm ghost" aria-label="Close"><svg class="ic sm" aria-hidden="true"><use href="#i-x"/></svg></button></div>
+          <div class="panel-body"><div class="hist">
+            <div class="hist-item"><div class="hist-rail"><span class="hist-dot"></span></div><div><span class="small strong">Duration 01:00 to 01:30</span><div class="tiny muted">Sam Okafor · 23 Sep 14:02</div></div></div>
+            <div class="hist-item"><div class="hist-rail"><span class="hist-dot" style="background:var(--txt-3)"></span></div><div><span class="small strong">Entry created from timer</span><div class="tiny muted">Mira de Vries · 23 Sep 13:40</div></div></div>
+          </div><button class="btn outline sm mt-12"><svg class="ic sm" aria-hidden="true"><use href="#i-undo"/></svg>Undo last change</button></div>
+        </div>
+      </div>
+    </div>
+    <div class="statebox">
+      <span class="cap">Toasts</span>
+      <div class="stack">
+        <div class="toast green" role="status"><svg class="ic" aria-hidden="true"><use href="#i-check-c"/></svg><span class="grow"><span class="strong small">Entry saved</span><div class="tiny sub">1h 30m on AV-142</div></span><button class="btn sm ghost">Undo</button></div>
+        <div class="toast amber" role="status"><svg class="ic" aria-hidden="true"><use href="#i-alert-t"/></svg><span class="grow"><span class="strong small">Budget below 10%</span><div class="tiny sub">Aviation Ops has 8% remaining</div></span></div>
+        <div class="toast red" role="alert"><svg class="ic" aria-hidden="true"><use href="#i-alert-c"/></svg><span class="grow"><span class="strong small">Could not reach Plane</span><div class="tiny sub">Entry queued, retrying</div></span><button class="btn sm">Retry</button></div>
+      </div>
+    </div>
+  </div>
+
+  <h2>Empty, loading and error</h2>
+  <div class="stategrid mt-16">
+    <div class="statebox"><span class="cap">Empty</span>
+      <div class="empty"><span class="glyph"><svg class="ic lg" aria-hidden="true"><use href="#i-clock"/></svg></span><div><span class="strong" style="display:block">No time this week</span><span class="small sub">Start the timer or back-fill time to see entries here.</span></div><button class="btn primary"><svg class="ic" aria-hidden="true"><use href="#i-play"/></svg>Start timer</button></div>
+    </div>
+    <div class="statebox"><span class="cap">Loading skeleton</span>
+      <div class="stack" style="gap:10px">
+        <div class="row"><span class="skel" style="width:34px;height:34px;border-radius:50%"></span><span class="stack grow" style="gap:6px"><span class="skel" style="width:60%"></span><span class="skel" style="width:35%"></span></span></div>
+        <span class="skel" style="width:100%"></span><span class="skel" style="width:92%"></span><span class="skel" style="width:78%"></span>
+      </div>
+    </div>
+    <div class="statebox"><span class="cap">Error</span>
+      <div class="banner red"><svg class="ic" aria-hidden="true"><use href="#i-alert-c"/></svg><span class="grow"><span class="strong small">Could not load projects</span><span class="tiny" style="display:block">The sync service returned an error. Cached data still shown.</span></span><button class="btn sm">Retry</button></div>
+    </div>
+    <div class="statebox"><span class="cap">Permission denied</span>
+      <div class="empty"><span class="glyph" style="background:var(--warning-subtle);color:var(--warning-strong)"><svg class="ic lg" aria-hidden="true"><use href="#i-lock"/></svg></span><div><span class="strong" style="display:block">Managers only</span><span class="small sub">Ask an admin to grant you the manager role to see budgets and rates.</span></div></div>
+    </div>
+  </div>
+
+  <h2>Usage guidance</h2>
+  <div class="spec">
+    <div><h3>Do</h3><ul>
+      <li>Use one primary button per screen.</li>
+      <li>Keep control height at 32px (26px small) for Plane-like density.</li>
+      <li>Give every field a visible label, not placeholder-only.</li>
+      <li>Pair colour with an icon or word for any status.</li>
+      <li>Order controls so Tab follows the task: date, work item, duration, save.</li>
+      <li>Use an icon-only button when a label would overflow a tight row.</li>
+    </ul></div>
+    <div><h3>Don't</h3><ul>
+      <li>Use the danger red for anything reversible.</li>
+      <li>Put destructive actions in the primary slot.</li>
+      <li>Rely on the pulse animation to signal running.</li>
+      <li>Show a spinner without also disabling the control.</li>
+      <li>Let a duration be typed as a start and end time; there is no end time in the product.</li>
+    </ul></div>
+    <div><h3>Accessibility notes</h3><ul>
+      <li>Dialogs trap focus, restore it on close, and close on Escape.</li>
+      <li>Toasts use role status or alert and are never the only feedback.</li>
+      <li>Focus rings are 2px with offset on every interactive element.</li>
+      <li>Targets are at least 24x24px; icon buttons are 26-32px and always carry an aria-label.</li>
+      <li>Durations accept 1h 30m, 1d and 1w and echo the parsed value, so screen reader users hear the result.</li>
+    </ul></div>
+  </div>
+</main>
+<script>
+(function(){
+  var root=document.documentElement;
+  try{var t=localStorage.getItem("airtime-ds-theme");if(t)root.setAttribute("data-theme",t);}catch(e){}
+  document.addEventListener("click",function(e){
+    var b=e.target.closest("[data-theme-set]");if(!b)return;
+    var t=b.getAttribute("data-theme-set");
+    root.setAttribute("data-theme",t);
+    try{localStorage.setItem("airtime-ds-theme",t);}catch(e2){}
+    document.querySelectorAll("[data-theme-set]").forEach(function(x){x.setAttribute("aria-pressed",String(x.getAttribute("data-theme-set")===t));});
+  });
+  var cur=root.getAttribute("data-theme")||(matchMedia("(prefers-color-scheme:dark)").matches?"dark":"light");
+  document.querySelectorAll("[data-theme-set]").forEach(function(x){x.setAttribute("aria-pressed",String(x.getAttribute("data-theme-set")===cur));});
+})();
+</script>
+</body>
+</html>
