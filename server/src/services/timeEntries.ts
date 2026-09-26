@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { PoolClient, QueryResultRow } from 'pg';
 import type { Db } from '../db/pool.js';
+import { recordFeedback } from './feedback.js';
 
 export const BILLABLE_MINIMUM_MINUTES = 10;
 export const MANUAL_SOURCE = 'manual';
@@ -136,6 +137,13 @@ async function insertEntry(
     action: 'created',
     before: null,
     after: result.rows[0],
+  });
+  await recordFeedback(client, {
+    organisationId: input.organisationId,
+    memberId: input.memberId,
+    action: 'created',
+    before: null,
+    after: result.rows[0]!,
   });
   return result.rows[0]!;
 }
@@ -455,6 +463,13 @@ export async function updateEntry(
       before,
       after,
     });
+    await recordFeedback(client, {
+      organisationId: input.organisationId,
+      memberId: before.member_id,
+      action: 'updated',
+      before,
+      after,
+    });
     return after;
   });
 }
@@ -480,6 +495,13 @@ export async function deleteEntry(
       entryId: before.id,
       organisationId: input.organisationId,
       actorMemberId: input.actorMemberId,
+      action: 'deleted',
+      before,
+      after: null,
+    });
+    await recordFeedback(client, {
+      organisationId: input.organisationId,
+      memberId: before.member_id,
       action: 'deleted',
       before,
       after: null,

@@ -239,4 +239,24 @@ export const migrations: Migration[] = [
       );
     `,
   },
+  {
+    id: '007_feedback',
+    sql: `
+      ALTER TABLE members ADD COLUMN IF NOT EXISTS feedback_opt_in boolean NOT NULL DEFAULT false;
+
+      CREATE TABLE IF NOT EXISTS feedback_events (
+        id uuid PRIMARY KEY,
+        organisation_id uuid NOT NULL REFERENCES organisations(id) ON DELETE CASCADE,
+        member_hash text NOT NULL,
+        action text NOT NULL CHECK (action IN ('created', 'updated', 'deleted')),
+        source text,
+        before_state jsonb,
+        after_state jsonb,
+        created_at timestamptz NOT NULL DEFAULT now()
+      );
+
+      CREATE INDEX IF NOT EXISTS feedback_events_org_created_idx
+        ON feedback_events (organisation_id, created_at DESC);
+    `,
+  },
 ];

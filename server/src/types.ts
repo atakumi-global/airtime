@@ -10,6 +10,7 @@ export type MemberRow = {
   status: 'active' | 'removed';
   password_hash: string | null;
   oidc_subject: string | null;
+  feedback_opt_in: boolean;
   created_at: Date;
   updated_at: Date;
 };
@@ -20,6 +21,7 @@ export type PublicMember = {
   displayName: string;
   role: Role;
   status: 'active' | 'removed';
+  feedbackOptIn: boolean;
 };
 
 export function toPublicMember(member: MemberRow): PublicMember {
@@ -29,5 +31,6 @@ export function toPublicMember(member: MemberRow): PublicMember {
     displayName: member.display_name,
     role: member.role,
     status: member.status,
+    feedbackOptIn: member.feedback_opt_in,
   };
 }

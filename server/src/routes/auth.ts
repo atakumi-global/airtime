@@ -6,7 +6,11 @@ import { signToken } from '../auth/jwt.js';
 import { TOKEN_COOKIE } from '../auth/plugin.js';
 import type { OidcService } from '../auth/oidc.js';
 import { getPrimaryOrganisation } from '../services/organisations.js';
-import { authenticateLocal, upsertOidcMember } from '../services/members.js';
+import {
+  authenticateLocal,
+  setFeedbackOptIn,
+  upsertOidcMember,
+} from '../services/members.js';
 import { toPublicMember } from '../types.js';
 
 const OIDC_COOKIE = 'airtime_oidc_pending';
@@ -15,6 +19,8 @@ const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1),
 });
+
+const feedbackSchema = z.object({ optIn: z.boolean() });
 
 export type AuthRouteDeps = {
   db: Db;
@@ -147,4 +153,25 @@ export function authRoutes(app: FastifyInstance, deps: AuthRouteDeps): void {
     }
     return { member: toPublicMember(request.member) };
   });
+
+  app.patch(
+    '/api/me/feedback',
+    { preHandler: app.authenticate },
+    async (request, reply) => {
+      const parsed = feedbackSchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply.code(400).send({ error: 'invalid_request' });
+      }
+      const member = await setFeedbackOptIn(
+        db,
+        request.member!.organisation_id,
+        request.member!.id,
+        parsed.data.optIn,
+      );
+      if (!member) {
+        return reply.code(404).send({ error: 'member_not_found' });
+      }
+      return { member: toPublicMember(member) };
+    },
+  );
 }

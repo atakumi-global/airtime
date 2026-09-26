@@ -115,6 +115,18 @@ opens directly in Excel.
 PDF export is deferred to AIRTIME-27 in the backlog so its layout gets a visual
 review first.
 
+## Feedback capture
+
+Opt-in per member via `PATCH /api/me/feedback`. While opted in, every create,
+edit and delete of a time entry also writes a feedback event for the future
+inference engine: action, source, before and after values and a timestamp. The
+stored event is anonymised - the member is a keyed hash, and descriptions, cost
+and identifiers are stripped - and nothing is written while a member is opted
+out. The entry edit history itself is always kept, as v1.3 requires.
+
+Administrators can review events with `GET /api/feedback` and pull the anonymised
+dataset with `GET /api/feedback/export`.
+
 ## Roles
 
 | Role | Capabilities |
@@ -155,6 +167,9 @@ caller without the role.
 | `GET` | `/api/fx/rates` | any authenticated member |
 | `POST` | `/api/fx/refresh` | administrator |
 | `GET` | `/api/exports/time-entries.csv` | manager, administrator |
+| `PATCH` | `/api/me/feedback` | any authenticated member |
+| `GET` | `/api/feedback` | administrator |
+| `GET` | `/api/feedback/export` | administrator |
 | `GET` | `/api/plane/connection` | any authenticated member |
 | `PUT` | `/api/plane/connection` | any authenticated member |
 | `DELETE` | `/api/plane/connection` | any authenticated member |

@@ -101,6 +101,21 @@ export async function removeMember(
   return rows[0];
 }
 
+export async function setFeedbackOptIn(
+  db: Db,
+  organisationId: string,
+  memberId: string,
+  optIn: boolean,
+): Promise<MemberRow | undefined> {
+  const rows = await db.query<MemberRow>(
+    `UPDATE members SET feedback_opt_in = $1, updated_at = now()
+      WHERE organisation_id = $2 AND id = $3
+      RETURNING *`,
+    [optIn, organisationId, memberId],
+  );
+  return rows[0];
+}
+
 export async function authenticateLocal(
   db: Db,
   organisationId: string,

@@ -15,6 +15,8 @@ import { timeRoutes } from './routes/time.js';
 import { organisationRoutes } from './routes/organisation.js';
 import { fxRoutes } from './routes/fx.js';
 import { exportRoutes } from './routes/exports.js';
+import { feedbackRoutes } from './routes/feedback.js';
+import { setFeedbackSalt } from './services/feedback.js';
 import { parseEncryptionKey } from './crypto/tokens.js';
 
 export type AppDeps = {
@@ -31,6 +33,8 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
 
   await app.register(cookie, { secret: deps.config.cookieSecret });
 
+  setFeedbackSalt(deps.config.jwtSecret);
+
   registerAuth(app, { db: deps.db, jwtSecret: deps.config.jwtSecret });
 
   healthRoutes(app, deps);
@@ -46,6 +50,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   organisationRoutes(app, deps);
   fxRoutes(app, { db: deps.db, providerUrl: deps.config.fxProviderUrl });
   exportRoutes(app, deps);
+  feedbackRoutes(app, deps);
   planeRoutes(app, {
     db: deps.db,
     encryptionKey: deps.config.tokenEncryptionKey
