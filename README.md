@@ -46,13 +46,27 @@ before exposing the server. Generate `APP_JWT_SECRET` and `COOKIE_SECRET` with
 
 ## Local development
 
+On Windows, `air.ps1` brings up PostgreSQL in Docker and the dev server (tsx
+watch) in a psmux session, generating `.env` secrets and a free database port on
+first run:
+
+```powershell
+.\air.ps1 start     # postgres + npm run dev in session "airtime"
+.\air.ps1 status    # containers, session windows and /health
+.\air.ps1 attach    # watch the server and postgres logs
+.\air.ps1 stop      # stop both
+```
+
+Or by hand:
+
 ```sh
 npm install
 cp .env.example .env                 # point DATABASE_URL at your Postgres
 npm run dev                          # tsx watch on http://localhost:3000
 ```
 
-Migrations run automatically on start.
+`npm run dev` loads `.env` from the repository root when present. Migrations run
+automatically on start.
 
 ## Time tracking
 
