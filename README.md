@@ -69,6 +69,26 @@ a history row with the previous and new value, the author and a timestamp,
 readable at `/api/time-entries/:id/history`. Deleted entries are soft-deleted so
 their history survives, and members can only change their own entries.
 
+## Budgets and burn
+
+A time-and-materials budget is an amount and currency per project, set with
+`PUT /api/projects/:id/budget`. Time is costed at read time using the most
+specific rate available: a member rate, then a project rate, then a client rate
+(`clientId` on a project), otherwise the entry is uncosted and excluded from cost
+totals.
+
+`GET /api/projects/:id/summary` returns spend, remaining, percent used, uncosted
+hours, any totals in other currencies, the current burn rate per day and a
+projected overrun or underrun over `PROJECTION_HORIZON_DAYS` (default 30). A
+project is flagged `over` when spend exceeds the budget and `warning` when less
+than 10 percent remains. `GET /api/projects?withBudget=true` adds the same
+summary to every project row so lists can flag at-risk projects.
+
+The projection horizon is a v1.4 assumption: because a budget has no end date,
+the projection extrapolates the current daily burn over that fixed window.
+Confirm the intended horizon, or add a project end date, before relying on the
+figure.
+
 ## Roles
 
 | Role | Capabilities |
@@ -95,6 +115,8 @@ caller without the role.
 | `DELETE` | `/api/members/:id` | administrator |
 | `GET` | `/api/projects` | any authenticated member |
 | `POST` | `/api/projects` | manager, administrator |
+| `PATCH` | `/api/projects/:id` | manager, administrator |
+| `GET` | `/api/projects/:id/summary` | any authenticated member |
 | `GET` | `/api/projects/:id/budget` | any authenticated member |
 | `PUT` | `/api/projects/:id/budget` | manager, administrator |
 | `DELETE` | `/api/projects/:id/budget` | manager, administrator |

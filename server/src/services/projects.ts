@@ -6,6 +6,10 @@ export type ProjectRow = {
   organisation_id: string;
   plane_project_id: string | null;
   name: string;
+  identifier: string | null;
+  archived: boolean;
+  client_id: string | null;
+  synced_at: Date | null;
   created_at: Date;
   updated_at: Date;
 };
@@ -34,13 +38,39 @@ export async function getProject(
 
 export async function createProject(
   db: Db,
-  input: { organisationId: string; name: string; planeProjectId?: string },
+  input: {
+    organisationId: string;
+    name: string;
+    planeProjectId?: string;
+    clientId?: string | null;
+  },
 ): Promise<ProjectRow> {
   const rows = await db.query<ProjectRow>(
-    `INSERT INTO projects (id, organisation_id, name, plane_project_id)
-     VALUES ($1, $2, $3, $4)
+    `INSERT INTO projects (id, organisation_id, name, plane_project_id, client_id)
+     VALUES ($1, $2, $3, $4, $5)
      RETURNING *`,
-    [randomUUID(), input.organisationId, input.name, input.planeProjectId ?? null],
+    [
+      randomUUID(),
+      input.organisationId,
+      input.name,
+      input.planeProjectId ?? null,
+      input.clientId ?? null,
+    ],
   );
   return rows[0]!;
+}
+
+export async function updateProjectClient(
+  db: Db,
+  organisationId: string,
+  projectId: string,
+  clientId: string | null,
+): Promise<ProjectRow | undefined> {
+  const rows = await db.query<ProjectRow>(
+    `UPDATE projects SET client_id = $1, updated_at = now()
+      WHERE organisation_id = $2 AND id = $3
+      RETURNING *`,
+    [clientId, organisationId, projectId],
+  );
+  return rows[0];
 }

@@ -10,6 +10,7 @@ export type AppConfig = {
   tokenEncryptionKey: string | null;
   syncPollSeconds: number;
   syncPollEnabled: boolean;
+  projectionHorizonDays: number;
   bootstrap: {
     orgName: string;
     email: string;
@@ -55,6 +56,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     tokenEncryptionKey: env.TOKEN_ENCRYPTION_KEY?.trim() || null,
     syncPollSeconds: Number(env.SYNC_POLL_SECONDS ?? 60),
     syncPollEnabled: (env.SYNC_POLL_ENABLED ?? 'true') !== 'false',
+    projectionHorizonDays: Number(env.PROJECTION_HORIZON_DAYS ?? 30),
     bootstrap: {
       orgName: env.BOOTSTRAP_ORG_NAME ?? 'Airtime',
       email: env.BOOTSTRAP_ADMIN_EMAIL ?? 'admin@example.com',

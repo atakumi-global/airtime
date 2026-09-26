@@ -1,0 +1,208 @@
+import { randomUUID } from 'node:crypto';
+import { after, before, beforeEach, test } from 'node:test';
+import assert from 'node:assert/strict';
+import type { FastifyInstance } from 'fastify';
+import { auth, getDb, login, makeApp, resetData, seed, setupSchema } from './helpers.js';
+
+let app: FastifyInstance;
+
+before(async () => {
+  await setupSchema();
+  app = await makeApp();
+});
+
+beforeEach(async () => {
+  await resetData();
+});
+
+after(async () => {
+  await app.close();
+  await getDb().close();
+});
+
+async function createProject(
+  organisationId: string,
+  clientId: string | null,
+): Promise<string> {
+  const db = getDb();
+  const projectId = randomUUID();
+  await db.query(
+    `INSERT INTO projects (id, organisation_id, plane_project_id, name, identifier, client_id)
+     VALUES ($1, $2, 'plane-p1', 'Website', 'WEB', $3)`,
+    [projectId, organisationId, clientId],
+  );
+  await db.query(
+    `INSERT INTO work_items
+       (id, organisation_id, project_id, plane_work_item_id, identifier, name, is_open)
+     VALUES ($1, $2, $3, 'wi-1', 'WEB-1', 'Fix login', true)`,
+    [randomUUID(), organisationId, projectId],
+  );
+  return projectId;
+}
+
+async function setRate(
+  token: string,
+  payload: Record<string, unknown>,
+): Promise<{ id: string }> {
+  const response = await app.inject({
+    method: 'PUT',
+    url: '/api/rates',
+    headers: auth(token),
+    payload,
+  });
+  assert.equal(response.statusCode, 200);
+  return response.json().rate;
+}
+
+async function addEntry(
+  token: string,
+  durationMinutes: number,
+): Promise<void> {
+  const response = await app.inject({
+    method: 'POST',
+    url: '/api/time-entries',
+    headers: auth(token),
+    payload: { workItemId: 'wi-1', durationMinutes },
+  });
+  assert.equal(response.statusCode, 201);
+}
+
+async function summary(
+  token: string,
+  projectId: string,
+): Promise<Record<string, unknown>> {
+  const response = await app.inject({
+    method: 'GET',
+    url: `/api/projects/${projectId}/summary`,
+    headers: auth(token),
+  });
+  assert.equal(response.statusCode, 200);
+  return response.json().summary;
+}
+
+test('the most specific rate wins: member, then project, then client', async () => {
+  const { organisationId, admin, member } = await seed();
+  const clientId = randomUUID();
+  const projectId = await createProject(organisationId, clientId);
+  const token = await login(app, admin.email, admin.password);
+  const memberToken = await login(app, member.email, member.password);
+  await addEntry(memberToken, 60);
+
+  await setRate(token, {
+    scope: 'client',
+    clientId,
+    currency: 'USD',
+    hourlyAmount: 50,
+  });
+  let result = await summary(token, projectId);
+  assert.equal(result.spent, 50);
+
+  await setRate(token, {
+    scope: 'project',
+    projectId,
+    currency: 'USD',
+    hourlyAmount: 100,
+  });
+  result = await summary(token, projectId);
+  assert.equal(result.spent, 100);
+
+  await setRate(token, {
+    scope: 'member',
+    memberId: member.id,
+    currency: 'USD',
+    hourlyAmount: 200,
+  });
+  result = await summary(token, projectId);
+  assert.equal(result.spent, 200);
+
+  const memberView = await login(app, member.email, member.password);
+  result = await summary(memberView, projectId);
+  assert.equal(result.spent, 200);
+});
+
+test('uncosted entries are shown separately and excluded from spend', async () => {
+  const { organisationId, admin } = await seed();
+  const projectId = await createProject(organisationId, null);
+  const token = await login(app, admin.email, admin.password);
+  await addEntry(token, 60);
+
+  const result = await summary(token, projectId);
+  assert.equal(result.spent, 0);
+  assert.deepEqual(result.uncosted, { entries: 1, hours: 1 });
+  assert.equal(result.flag, 'none');
+});
+
+test('budget reports spend, remaining, percent and overrun flags', async () => {
+  const { organisationId, admin } = await seed();
+  const projectId = await createProject(organisationId, null);
+  const token = await login(app, admin.email, admin.password);
+
+  await setRate(token, {
+    scope: 'project',
+    projectId,
+    currency: 'EUR',
+    hourlyAmount: 120,
+  });
+  await addEntry(token, 60);
+
+  const budget = await app.inject({
+    method: 'PUT',
+    url: `/api/projects/${projectId}/budget`,
+    headers: auth(token),
+    payload: { amount: 100, currency: 'EUR' },
+  });
+  assert.equal(budget.statusCode, 200);
+
+  const over = await summary(token, projectId);
+  assert.equal(over.spent, 120);
+  assert.equal(over.remaining, -20);
+  assert.equal(over.percentUsed, 120);
+  assert.equal(over.flag, 'over');
+  assert.equal(typeof over.burnRatePerDay, 'number');
+  assert.equal(typeof over.projectedOverrun, 'number');
+
+  const warningBudget = await app.inject({
+    method: 'PUT',
+    url: `/api/projects/${projectId}/budget`,
+    headers: auth(token),
+    payload: { amount: 1000, currency: 'EUR' },
+  });
+  assert.equal(warningBudget.statusCode, 200);
+
+  const warning = await summary(token, projectId);
+  assert.equal(warning.remaining, 880);
+  assert.equal(warning.flag, 'ok');
+});
+
+test('project list can include budget summaries for flagging', async () => {
+  const { organisationId, admin } = await seed();
+  const projectId = await createProject(organisationId, null);
+  const token = await login(app, admin.email, admin.password);
+
+  await setRate(token, {
+    scope: 'project',
+    projectId,
+    currency: 'USD',
+    hourlyAmount: 100,
+  });
+  await addEntry(token, 60);
+  await app.inject({
+    method: 'PUT',
+    url: `/api/projects/${projectId}/budget`,
+    headers: auth(token),
+    payload: { amount: 50, currency: 'USD' },
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/api/projects?withBudget=true',
+    headers: auth(token),
+  });
+  assert.equal(response.statusCode, 200);
+  const project = response
+    .json()
+    .projects.find((item: { id: string }) => item.id === projectId);
+  assert.ok(project);
+  assert.equal(project.summary.flag, 'over');
+  assert.equal(project.summary.spent, 100);
+});

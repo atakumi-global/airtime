@@ -33,6 +33,7 @@ export const testConfig: AppConfig = {
   tokenEncryptionKey: 'a'.repeat(64),
   syncPollSeconds: 0,
   syncPollEnabled: false,
+  projectionHorizonDays: 30,
   bootstrap: {
     orgName: 'Test',
     email: 'bootstrap@test.local',

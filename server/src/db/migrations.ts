@@ -214,4 +214,10 @@ export const migrations: Migration[] = [
         ON time_entry_history (entry_id, created_at ASC);
     `,
   },
+  {
+    id: '004_costing',
+    sql: `
+      ALTER TABLE projects ADD COLUMN IF NOT EXISTS client_id uuid;
+    `,
+  },
 ];

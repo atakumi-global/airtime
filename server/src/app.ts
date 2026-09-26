@@ -33,7 +33,10 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   healthRoutes(app, deps);
   authRoutes(app, deps);
   memberRoutes(app, deps);
-  projectRoutes(app, deps);
+  projectRoutes(app, {
+    db: deps.db,
+    projectionHorizonDays: deps.config.projectionHorizonDays,
+  });
   rateRoutes(app, deps);
   auditRoutes(app, deps);
   timeRoutes(app, deps);
