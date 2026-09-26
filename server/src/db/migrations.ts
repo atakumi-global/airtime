@@ -179,4 +179,39 @@ export const migrations: Migration[] = [
         ON plane_sync_runs (connection_id, started_at DESC);
     `,
   },
+  {
+    id: '003_time_tracking',
+    sql: `
+      ALTER TABLE time_entries ADD COLUMN IF NOT EXISTS deleted_at timestamptz;
+
+      CREATE INDEX IF NOT EXISTS time_entries_member_started_idx
+        ON time_entries (organisation_id, member_id, started_at DESC)
+        WHERE deleted_at IS NULL;
+
+      CREATE TABLE IF NOT EXISTS timers (
+        member_id uuid PRIMARY KEY REFERENCES members(id) ON DELETE CASCADE,
+        organisation_id uuid NOT NULL REFERENCES organisations(id) ON DELETE CASCADE,
+        project_id uuid REFERENCES projects(id) ON DELETE SET NULL,
+        work_item_id text,
+        description text,
+        started_at timestamptz NOT NULL DEFAULT now(),
+        created_at timestamptz NOT NULL DEFAULT now(),
+        updated_at timestamptz NOT NULL DEFAULT now()
+      );
+
+      CREATE TABLE IF NOT EXISTS time_entry_history (
+        id uuid PRIMARY KEY,
+        entry_id uuid NOT NULL,
+        organisation_id uuid NOT NULL REFERENCES organisations(id) ON DELETE CASCADE,
+        actor_member_id uuid REFERENCES members(id) ON DELETE SET NULL,
+        action text NOT NULL CHECK (action IN ('created', 'updated', 'deleted')),
+        before_state jsonb,
+        after_state jsonb,
+        created_at timestamptz NOT NULL DEFAULT now()
+      );
+
+      CREATE INDEX IF NOT EXISTS time_entry_history_entry_idx
+        ON time_entry_history (entry_id, created_at ASC);
+    `,
+  },
 ];

@@ -10,8 +10,10 @@ shared state - accounts, roles, projects, rates, budgets and time entries - plus
 its PostgreSQL schema, OIDC/local sign-in, role-based access control, financial
 audit log and Docker deployment (work item `AIRTIME-3`, v1.1). It reads projects
 and work items from Plane using a per-user API token, stored encrypted at rest,
-kept fresh by webhooks and a polling fallback (work item `AIRTIME-4`, v1.2). The
-Windows desktop client lands in a later work item (`AIRTIME-9`).
+kept fresh by webhooks and a polling fallback (work item `AIRTIME-4`, v1.2). It
+records time with a one-timer-per-member start/stop and manual back-fill, a
+10-minute billable minimum and a full edit history (work item `AIRTIME-5`, v1.3).
+The Windows desktop client lands in a later work item (`AIRTIME-9`).
 
 The coded design system and product screens live under `design/AIRTIME-16/v2`.
 
@@ -52,6 +54,21 @@ npm run dev                          # tsx watch on http://localhost:3000
 
 Migrations run automatically on start.
 
+## Time tracking
+
+`POST /api/timer/start` starts a timer for the signed-in member; starting a
+second timer stops the first and records it as an entry. `POST /api/timer/stop`
+creates an entry from the running timer. `POST /api/time-entries` back-fills
+manually from a `date` and `durationMinutes`, or from explicit `startedAt` and
+`endedAt`.
+
+Every entry stores `duration_minutes` and `billable_minutes`; the billed figure
+is floored at 10 minutes. A zero or negative duration, or an end before the
+start, is rejected with a 400 and a message. Each create, edit and delete writes
+a history row with the previous and new value, the author and a timestamp,
+readable at `/api/time-entries/:id/history`. Deleted entries are soft-deleted so
+their history survives, and members can only change their own entries.
+
 ## Roles
 
 | Role | Capabilities |
@@ -91,6 +108,14 @@ caller without the role.
 | `POST` | `/api/plane/sync` | any authenticated member |
 | `GET` | `/api/plane/work-items` | any authenticated member |
 | `POST` | `/api/plane/webhook/:secret` | public (secret path) |
+| `GET` | `/api/timer` | any authenticated member |
+| `POST` | `/api/timer/start` | any authenticated member |
+| `POST` | `/api/timer/stop` | any authenticated member |
+| `GET` | `/api/time-entries` | any authenticated member (own; managers all) |
+| `POST` | `/api/time-entries` | any authenticated member |
+| `PATCH` | `/api/time-entries/:id` | entry owner, manager, administrator |
+| `DELETE` | `/api/time-entries/:id` | entry owner, manager, administrator |
+| `GET` | `/api/time-entries/:id/history` | entry owner, manager, administrator |
 
 Authenticate with `Authorization: Bearer <token>` from `/auth/login`, or the
 `airtime_token` cookie set on sign-in. Every rate and budget change is written to
