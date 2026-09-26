@@ -7,6 +7,9 @@ export type AppConfig = {
   jwtTtl: string;
   cookieSecret: string;
   baseUrl: string;
+  tokenEncryptionKey: string | null;
+  syncPollSeconds: number;
+  syncPollEnabled: boolean;
   bootstrap: {
     orgName: string;
     email: string;
@@ -49,6 +52,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     jwtTtl: env.APP_JWT_TTL ?? '12h',
     cookieSecret: env.COOKIE_SECRET ?? requireEnv('APP_JWT_SECRET'),
     baseUrl,
+    tokenEncryptionKey: env.TOKEN_ENCRYPTION_KEY?.trim() || null,
+    syncPollSeconds: Number(env.SYNC_POLL_SECONDS ?? 60),
+    syncPollEnabled: (env.SYNC_POLL_ENABLED ?? 'true') !== 'false',
     bootstrap: {
       orgName: env.BOOTSTRAP_ORG_NAME ?? 'Airtime',
       email: env.BOOTSTRAP_ADMIN_EMAIL ?? 'admin@example.com',

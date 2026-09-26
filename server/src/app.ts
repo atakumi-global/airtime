@@ -10,6 +10,8 @@ import { memberRoutes } from './routes/members.js';
 import { projectRoutes } from './routes/projects.js';
 import { rateRoutes } from './routes/rates.js';
 import { auditRoutes } from './routes/audit.js';
+import { planeRoutes } from './routes/plane.js';
+import { parseEncryptionKey } from './crypto/tokens.js';
 
 export type AppDeps = {
   db: Db;
@@ -33,6 +35,12 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   projectRoutes(app, deps);
   rateRoutes(app, deps);
   auditRoutes(app, deps);
+  planeRoutes(app, {
+    db: deps.db,
+    encryptionKey: deps.config.tokenEncryptionKey
+      ? parseEncryptionKey(deps.config.tokenEncryptionKey)
+      : null,
+  });
 
   app.setNotFoundHandler((_request, reply) => {
     return reply.code(404).send({ error: 'not_found' });

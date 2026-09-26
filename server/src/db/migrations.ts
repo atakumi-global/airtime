@@ -120,4 +120,63 @@ export const migrations: Migration[] = [
         ON audit_log (organisation_id, created_at DESC);
     `,
   },
+  {
+    id: '002_plane',
+    sql: `
+      ALTER TABLE projects ADD COLUMN IF NOT EXISTS identifier text;
+      ALTER TABLE projects ADD COLUMN IF NOT EXISTS archived boolean NOT NULL DEFAULT false;
+      ALTER TABLE projects ADD COLUMN IF NOT EXISTS synced_at timestamptz;
+
+      CREATE TABLE IF NOT EXISTS plane_connections (
+        id uuid PRIMARY KEY,
+        organisation_id uuid NOT NULL REFERENCES organisations(id) ON DELETE CASCADE,
+        member_id uuid NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+        base_url text NOT NULL,
+        workspace_slug text NOT NULL,
+        encrypted_token text NOT NULL,
+        webhook_secret text,
+        status text NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'error')),
+        last_verified_at timestamptz,
+        last_synced_at timestamptz,
+        last_error text,
+        created_at timestamptz NOT NULL DEFAULT now(),
+        updated_at timestamptz NOT NULL DEFAULT now(),
+        UNIQUE (member_id)
+      );
+
+      CREATE TABLE IF NOT EXISTS work_items (
+        id uuid PRIMARY KEY,
+        organisation_id uuid NOT NULL REFERENCES organisations(id) ON DELETE CASCADE,
+        project_id uuid REFERENCES projects(id) ON DELETE CASCADE,
+        plane_work_item_id text NOT NULL,
+        identifier text,
+        name text NOT NULL,
+        state_group text,
+        is_open boolean NOT NULL DEFAULT true,
+        plane_updated_at timestamptz,
+        synced_at timestamptz NOT NULL DEFAULT now(),
+        raw jsonb,
+        UNIQUE (organisation_id, plane_work_item_id)
+      );
+
+      CREATE INDEX IF NOT EXISTS work_items_project_idx
+        ON work_items (organisation_id, project_id, is_open);
+
+      CREATE TABLE IF NOT EXISTS plane_sync_runs (
+        id uuid PRIMARY KEY,
+        organisation_id uuid NOT NULL REFERENCES organisations(id) ON DELETE CASCADE,
+        connection_id uuid REFERENCES plane_connections(id) ON DELETE CASCADE,
+        trigger text NOT NULL,
+        status text NOT NULL CHECK (status IN ('ok', 'error')),
+        projects_synced integer NOT NULL DEFAULT 0,
+        work_items_synced integer NOT NULL DEFAULT 0,
+        error text,
+        started_at timestamptz NOT NULL DEFAULT now(),
+        finished_at timestamptz
+      );
+
+      CREATE INDEX IF NOT EXISTS plane_sync_runs_connection_idx
+        ON plane_sync_runs (connection_id, started_at DESC);
+    `,
+  },
 ];

@@ -5,11 +5,13 @@ Airtime reads projects and work items from Plane with a per-user API token and
 adds time-and-materials budgets, rates, burn and export on top, without changing
 Plane.
 
-This repository currently contains the **Airtime server** (work item `AIRTIME-3`,
-release v1.1): the service that owns shared state - accounts, roles, projects,
-rates, budgets and time entries - plus its PostgreSQL schema, OIDC/local sign-in,
-role-based access control, financial audit log and Docker deployment. The Windows
-desktop client and the Plane sync land in later work items (`AIRTIME-4`, `AIRTIME-9`).
+This repository currently contains the **Airtime server**: the service that owns
+shared state - accounts, roles, projects, rates, budgets and time entries - plus
+its PostgreSQL schema, OIDC/local sign-in, role-based access control, financial
+audit log and Docker deployment (work item `AIRTIME-3`, v1.1). It reads projects
+and work items from Plane using a per-user API token, stored encrypted at rest,
+kept fresh by webhooks and a polling fallback (work item `AIRTIME-4`, v1.2). The
+Windows desktop client lands in a later work item (`AIRTIME-9`).
 
 The coded design system and product screens live under `design/AIRTIME-16/v2`.
 
@@ -83,10 +85,34 @@ caller without the role.
 | `PUT` | `/api/rates` | manager, administrator |
 | `DELETE` | `/api/rates/:id` | manager, administrator |
 | `GET` | `/api/audit` | administrator |
+| `GET` | `/api/plane/connection` | any authenticated member |
+| `PUT` | `/api/plane/connection` | any authenticated member |
+| `DELETE` | `/api/plane/connection` | any authenticated member |
+| `POST` | `/api/plane/sync` | any authenticated member |
+| `GET` | `/api/plane/work-items` | any authenticated member |
+| `POST` | `/api/plane/webhook/:secret` | public (secret path) |
 
 Authenticate with `Authorization: Bearer <token>` from `/auth/login`, or the
 `airtime_token` cookie set on sign-in. Every rate and budget change is written to
 the audit log with actor and timestamp.
+
+## Plane connection and sync
+
+`PUT /api/plane/connection` takes `baseUrl`, `workspaceSlug` and a Plane personal
+API token. The server verifies the token with a read-only Plane request, stores
+the token encrypted with AES-256-GCM under `TOKEN_ENCRYPTION_KEY`, then syncs all
+projects and work items visible to that token into the local cache. Airtime only
+ever issues `GET` requests to Plane; it never writes back.
+
+Every connection gets a unique webhook path (`webhookPath` in the connection
+response). Register it in Plane to receive the fastest updates; a scheduler polls
+each connection every `SYNC_POLL_SECONDS` (default 60) as a fallback for
+installations without webhooks. `GET /api/plane/work-items` returns the open work
+items, optionally filtered by `projectId` (add `includeClosed=true` for all).
+
+`TOKEN_ENCRYPTION_KEY` is required to save a connection and must be 32 bytes as
+64 hex characters. Losing it means stored Plane tokens cannot be decrypted and
+must be re-entered.
 
 ## Scripts
 

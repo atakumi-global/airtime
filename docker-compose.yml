@@ -28,6 +28,9 @@ services:
       DATABASE_URL: postgres://${POSTGRES_USER:-airtime}:${POSTGRES_PASSWORD:-airtime}@postgres:5432/${POSTGRES_DB:-airtime}
       APP_JWT_SECRET: ${APP_JWT_SECRET:-change-me-in-production}
       COOKIE_SECRET: ${COOKIE_SECRET:-change-me-in-production}
+      TOKEN_ENCRYPTION_KEY: ${TOKEN_ENCRYPTION_KEY:-}
+      SYNC_POLL_SECONDS: ${SYNC_POLL_SECONDS:-60}
+      SYNC_POLL_ENABLED: ${SYNC_POLL_ENABLED:-true}
       BOOTSTRAP_ORG_NAME: ${BOOTSTRAP_ORG_NAME:-Airtime}
       BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-admin@example.com}
       BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-change-me-in-production}

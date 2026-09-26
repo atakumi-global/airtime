@@ -30,6 +30,9 @@ export const testConfig: AppConfig = {
   jwtTtl: '1h',
   cookieSecret: 'test-cookie-secret',
   baseUrl: 'http://localhost:3000',
+  tokenEncryptionKey: 'a'.repeat(64),
+  syncPollSeconds: 0,
+  syncPollEnabled: false,
   bootstrap: {
     orgName: 'Test',
     email: 'bootstrap@test.local',
@@ -45,7 +48,8 @@ export async function setupSchema(): Promise<void> {
 
 export async function resetData(): Promise<void> {
   await getDb().query(
-    'TRUNCATE organisations, members, projects, rates, budgets, time_entries, audit_log CASCADE',
+    `TRUNCATE organisations, members, projects, rates, budgets, time_entries,
+              audit_log, plane_connections, work_items, plane_sync_runs CASCADE`,
   );
 }
 
