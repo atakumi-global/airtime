@@ -220,4 +220,11 @@ export const migrations: Migration[] = [
       ALTER TABLE projects ADD COLUMN IF NOT EXISTS client_id uuid;
     `,
   },
+  {
+    id: '005_project_dates',
+    sql: `
+      ALTER TABLE projects ADD COLUMN IF NOT EXISTS start_date date;
+      ALTER TABLE projects ADD COLUMN IF NOT EXISTS target_date date;
+    `,
+  },
 ];

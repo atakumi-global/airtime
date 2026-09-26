@@ -9,6 +9,8 @@ export type ProjectRow = {
   identifier: string | null;
   archived: boolean;
   client_id: string | null;
+  start_date: Date | string | null;
+  target_date: Date | string | null;
   synced_at: Date | null;
   created_at: Date;
   updated_at: Date;

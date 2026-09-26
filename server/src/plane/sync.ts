@@ -48,24 +48,35 @@ async function upsertProject(
   );
   const identifier = project.identifier ?? null;
   const archived = Boolean(project.archived_at);
+  const startDate = toDateOnly(project.start_date);
+  const targetDate = toDateOnly(project.target_date);
 
   if (existing[0]) {
     await db.query(
       `UPDATE projects
-          SET name = $1, identifier = $2, archived = $3, synced_at = now(), updated_at = now()
-        WHERE id = $4`,
-      [project.name, identifier, archived, existing[0].id],
+          SET name = $1, identifier = $2, archived = $3,
+              start_date = $4, target_date = $5, synced_at = now(), updated_at = now()
+        WHERE id = $6`,
+      [project.name, identifier, archived, startDate, targetDate, existing[0].id],
     );
     return existing[0].id;
   }
 
   const id = randomUUID();
   await db.query(
-    `INSERT INTO projects (id, organisation_id, plane_project_id, name, identifier, archived, synced_at)
-     VALUES ($1, $2, $3, $4, $5, $6, now())`,
-    [id, organisationId, project.id, project.name, identifier, archived],
+    `INSERT INTO projects
+       (id, organisation_id, plane_project_id, name, identifier, archived, start_date, target_date, synced_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now())`,
+    [id, organisationId, project.id, project.name, identifier, archived, startDate, targetDate],
   );
   return id;
+}
+
+function toDateOnly(value: string | null | undefined): string | null {
+  if (!value) {
+    return null;
+  }
+  return value.slice(0, 10);
 }
 
 async function upsertWorkItem(

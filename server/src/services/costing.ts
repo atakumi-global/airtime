@@ -111,8 +111,8 @@ export async function loadEntriesForProject(
 export async function getProjectBudgetSummary(
   db: Db,
   organisationId: string,
-  project: { id: string; client_id: string | null },
-  horizonDays: number,
+  project: { id: string; client_id: string | null; target_date: Date | string | null },
+  fallbackHorizonDays: number,
 ): Promise<BudgetSummary> {
   const budgetRows = await db.query<{ amount: string; currency: string }>(
     'SELECT amount, currency FROM budgets WHERE organisation_id = $1 AND project_id = $2',
@@ -125,7 +125,7 @@ export async function getProjectBudgetSummary(
     entries,
     index,
     project.client_id,
-    horizonDays,
+    horizonForProject(project.target_date, fallbackHorizonDays),
   );
 }
 
@@ -136,6 +136,7 @@ export async function getProjectSummaries(
   budgets: Map<string, { amount: string; currency: string }>;
   entriesByProject: Map<string, EntryRow[]>;
   clientByProject: Map<string, string | null>;
+  targetDateByProject: Map<string, Date | string | null>;
   index: RateIndex;
 }> {
   const budgets = new Map<string, { amount: string; currency: string }>();
@@ -166,30 +167,68 @@ export async function getProjectSummaries(
   }
 
   const clientByProject = new Map<string, string | null>();
-  const projectRows = await db.query<{ id: string; client_id: string | null }>(
-    'SELECT id, client_id FROM projects WHERE organisation_id = $1',
-    [organisationId],
-  );
+  const targetDateByProject = new Map<string, Date | string | null>();
+  const projectRows = await db.query<{
+    id: string;
+    client_id: string | null;
+    target_date: Date | string | null;
+  }>('SELECT id, client_id, target_date FROM projects WHERE organisation_id = $1', [
+    organisationId,
+  ]);
   for (const row of projectRows) {
     clientByProject.set(row.id, row.client_id);
+    targetDateByProject.set(row.id, row.target_date);
   }
 
   const index = await buildRateIndex(db, organisationId);
-  return { budgets, entriesByProject, clientByProject, index };
+  return {
+    budgets,
+    entriesByProject,
+    clientByProject,
+    targetDateByProject,
+    index,
+  };
 }
 
 export function summariseProject(
   projectId: string,
   data: Awaited<ReturnType<typeof getProjectSummaries>>,
-  horizonDays: number,
+  fallbackHorizonDays: number,
 ): BudgetSummary {
   return summarise(
     data.budgets.get(projectId) ?? null,
     data.entriesByProject.get(projectId) ?? [],
     data.index,
     data.clientByProject.get(projectId) ?? null,
-    horizonDays,
+    horizonForProject(
+      data.targetDateByProject.get(projectId) ?? null,
+      fallbackHorizonDays,
+    ),
   );
+}
+
+export type ProjectionBasis = 'project_end_date' | 'default_horizon';
+
+export type ProjectionHorizon = {
+  days: number;
+  basis: ProjectionBasis;
+};
+
+export function horizonForProject(
+  targetDate: Date | string | null | undefined,
+  fallbackDays: number,
+): ProjectionHorizon {
+  if (targetDate) {
+    const target = new Date(targetDate);
+    if (!Number.isNaN(target.getTime())) {
+      const days = Math.max(
+        0,
+        Math.ceil((target.getTime() - Date.now()) / (1000 * 60 * 60 * 24)),
+      );
+      return { days, basis: 'project_end_date' };
+    }
+  }
+  return { days: fallbackDays, basis: 'default_horizon' };
 }
 
 export type BudgetSummary = {
@@ -202,6 +241,8 @@ export type BudgetSummary = {
   otherCurrencies: Record<string, number>;
   burnRatePerDay: number | null;
   projectedOverrun: number | null;
+  projectionHorizonDays: number | null;
+  projectionBasis: ProjectionBasis | null;
   flag: 'ok' | 'warning' | 'over' | 'none';
 };
 
@@ -210,7 +251,7 @@ export function summarise(
   entries: EntryRow[],
   index: RateIndex,
   projectClientId: string | null | undefined,
-  horizonDays: number,
+  horizon: ProjectionHorizon,
 ): BudgetSummary {
   let spent = 0;
   let uncostedEntries = 0;
@@ -252,6 +293,8 @@ export function summarise(
       otherCurrencies,
       burnRatePerDay: null,
       projectedOverrun: null,
+      projectionHorizonDays: null,
+      projectionBasis: null,
       flag: 'none',
     };
   }
@@ -265,7 +308,8 @@ export function summarise(
       ? 0
       : Math.max(1, (Date.now() - earliest) / (1000 * 60 * 60 * 24));
   const burnRatePerDay = elapsedDays > 0 ? round4(spent / elapsedDays) : null;
-  const projectedTotal = burnRatePerDay === null ? null : spent + burnRatePerDay * horizonDays;
+  const projectedTotal =
+    burnRatePerDay === null ? null : spent + burnRatePerDay * horizon.days;
   const projectedOverrun =
     projectedTotal === null ? null : round4(projectedTotal - amount);
 
@@ -286,6 +330,8 @@ export function summarise(
     otherCurrencies,
     burnRatePerDay,
     projectedOverrun,
+    projectionHorizonDays: horizon.days,
+    projectionBasis: horizon.basis,
     flag,
   };
 }

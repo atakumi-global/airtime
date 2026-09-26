@@ -79,15 +79,13 @@ totals.
 
 `GET /api/projects/:id/summary` returns spend, remaining, percent used, uncosted
 hours, any totals in other currencies, the current burn rate per day and a
-projected overrun or underrun over `PROJECTION_HORIZON_DAYS` (default 30). A
-project is flagged `over` when spend exceeds the budget and `warning` when less
-than 10 percent remains. `GET /api/projects?withBudget=true` adds the same
-summary to every project row so lists can flag at-risk projects.
-
-The projection horizon is a v1.4 assumption: because a budget has no end date,
-the projection extrapolates the current daily burn over that fixed window.
-Confirm the intended horizon, or add a project end date, before relying on the
-figure.
+projected overrun or underrun. The projection runs from today to the project's
+`target_date` synced from Plane; `projectionBasis` reports `project_end_date`
+when that date is used. Only when a Plane project has no target date does it fall
+back to a fixed `PROJECTION_HORIZON_DAYS` (default 30) and report
+`default_horizon`. A project is flagged `over` when spend exceeds the budget and
+`warning` when less than 10 percent remains. `GET /api/projects?withBudget=true`
+adds the same summary to every project row so lists can flag at-risk projects.
 
 ## Roles
 

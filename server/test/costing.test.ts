@@ -23,19 +23,31 @@ after(async () => {
 async function createProject(
   organisationId: string,
   clientId: string | null,
+  targetDate: string | null = null,
 ): Promise<string> {
   const db = getDb();
   const projectId = randomUUID();
   await db.query(
-    `INSERT INTO projects (id, organisation_id, plane_project_id, name, identifier, client_id)
-     VALUES ($1, $2, 'plane-p1', 'Website', 'WEB', $3)`,
-    [projectId, organisationId, clientId],
+    `INSERT INTO projects (id, organisation_id, plane_project_id, name, identifier, client_id, target_date)
+     VALUES ($1, $2, 'plane-p1', 'Website', 'WEB', $3, $4)`,
+    [projectId, organisationId, clientId, targetDate],
   );
   await db.query(
     `INSERT INTO work_items
        (id, organisation_id, project_id, plane_work_item_id, identifier, name, is_open)
      VALUES ($1, $2, $3, 'wi-1', 'WEB-1', 'Fix login', true)`,
     [randomUUID(), organisationId, projectId],
+  );
+  return projectId;
+}
+
+async function createBareProject(organisationId: string): Promise<string> {
+  const db = getDb();
+  const projectId = randomUUID();
+  await db.query(
+    `INSERT INTO projects (id, organisation_id, plane_project_id, name)
+     VALUES ($1, $2, $3, 'Second project')`,
+    [projectId, organisationId, `plane-${projectId}`],
   );
   return projectId;
 }
@@ -172,6 +184,41 @@ test('budget reports spend, remaining, percent and overrun flags', async () => {
   const warning = await summary(token, projectId);
   assert.equal(warning.remaining, 880);
   assert.equal(warning.flag, 'ok');
+});
+
+test('the projection uses the Plane project end date, falling back to the default horizon', async () => {
+  const { organisationId, admin } = await seed();
+  const token = await login(app, admin.email, admin.password);
+
+  const endDate = new Date(Date.now() + 10 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+  const datedProject = await createProject(organisationId, null, endDate);
+  await addEntry(token, 60);
+  await app.inject({
+    method: 'PUT',
+    url: `/api/projects/${datedProject}/budget`,
+    headers: auth(token),
+    payload: { amount: 1000, currency: 'USD' },
+  });
+  const dated = await summary(token, datedProject);
+  assert.equal(dated.projectionBasis, 'project_end_date');
+  assert.ok(
+    (dated.projectionHorizonDays as number) >= 9 &&
+      (dated.projectionHorizonDays as number) <= 10,
+    `expected about 10 days, got ${dated.projectionHorizonDays}`,
+  );
+
+  const undatedProject = await createBareProject(organisationId);
+  await app.inject({
+    method: 'PUT',
+    url: `/api/projects/${undatedProject}/budget`,
+    headers: auth(token),
+    payload: { amount: 1000, currency: 'USD' },
+  });
+  const undated = await summary(token, undatedProject);
+  assert.equal(undated.projectionBasis, 'default_horizon');
+  assert.equal(undated.projectionHorizonDays, 30);
 });
 
 test('project list can include budget summaries for flagging', async () => {

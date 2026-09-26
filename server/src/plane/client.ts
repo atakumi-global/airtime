@@ -3,6 +3,8 @@ export type PlaneProject = {
   identifier?: string;
   name: string;
   archived_at?: string | null;
+  start_date?: string | null;
+  target_date?: string | null;
 };
 
 export type PlaneIssue = {
