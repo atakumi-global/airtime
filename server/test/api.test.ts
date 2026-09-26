@@ -34,6 +34,14 @@ test('GET /health reports the database is reachable', async () => {
   assert.deepEqual(response.json(), { status: 'ok', database: 'up' });
 });
 
+test('GET / describes the service instead of returning a bare 404', async () => {
+  const response = await app.inject({ method: 'GET', url: '/' });
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.json().name, 'Airtime server');
+  assert.equal(response.json().health, '/health');
+  assert.equal(response.json().endpoints.login, '/auth/login');
+});
+
 test('local sign-in succeeds with valid credentials and fails otherwise', async () => {
   const { admin } = await seed();
 
