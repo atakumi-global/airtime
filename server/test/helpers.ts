@@ -34,6 +34,8 @@ export const testConfig: AppConfig = {
   syncPollSeconds: 0,
   syncPollEnabled: false,
   projectionHorizonDays: 30,
+  fxProviderUrl: 'http://127.0.0.1:1/latest',
+  fxRefreshHours: 0,
   bootstrap: {
     orgName: 'Test',
     email: 'bootstrap@test.local',
@@ -51,7 +53,7 @@ export async function resetData(): Promise<void> {
   await getDb().query(
     `TRUNCATE organisations, members, projects, rates, budgets, time_entries,
               audit_log, plane_connections, work_items, plane_sync_runs,
-              timers, time_entry_history CASCADE`,
+              timers, time_entry_history, fx_rates CASCADE`,
   );
 }
 

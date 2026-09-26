@@ -6,6 +6,7 @@ import { OidcService } from './auth/oidc.js';
 import { buildApp } from './app.js';
 import { parseEncryptionKey } from './crypto/tokens.js';
 import { startSyncScheduler } from './plane/scheduler.js';
+import { startFxScheduler } from './fx/scheduler.js';
 
 const config = loadConfig();
 const db = createDb(config.databaseUrl);
@@ -15,11 +16,13 @@ const app = await buildApp({
   oidc: config.oidc ? new OidcService(config.oidc) : null,
 });
 
-let stopScheduler: (() => void) | null = null;
+const stopSchedulers: Array<() => void> = [];
 
 async function shutdown(signal: string): Promise<void> {
   app.log.info({ signal }, 'shutting down');
-  stopScheduler?.();
+  for (const stop of stopSchedulers) {
+    stop();
+  }
   await app.close();
   await db.close();
   process.exit(0);
@@ -38,15 +41,23 @@ try {
     config.syncPollSeconds > 0 &&
     config.tokenEncryptionKey
   ) {
-    stopScheduler = startSyncScheduler(
-      db,
-      parseEncryptionKey(config.tokenEncryptionKey),
-      config.syncPollSeconds,
-      app.log,
+    stopSchedulers.push(
+      startSyncScheduler(
+        db,
+        parseEncryptionKey(config.tokenEncryptionKey),
+        config.syncPollSeconds,
+        app.log,
+      ),
     );
     app.log.info(
       { intervalSeconds: config.syncPollSeconds },
       'started Plane polling scheduler',
+    );
+  }
+
+  if (config.fxRefreshHours > 0) {
+    stopSchedulers.push(
+      startFxScheduler(db, config.fxProviderUrl, config.fxRefreshHours, app.log),
     );
   }
 

@@ -18,6 +18,20 @@ export async function getPrimaryOrganisation(
   return rows[0];
 }
 
+export async function updateReportingCurrency(
+  db: Db,
+  organisationId: string,
+  reportingCurrency: string,
+): Promise<OrganisationRow | undefined> {
+  const rows = await db.query<OrganisationRow>(
+    `UPDATE organisations SET reporting_currency = $1, updated_at = now()
+      WHERE id = $2
+      RETURNING *`,
+    [reportingCurrency.toUpperCase(), organisationId],
+  );
+  return rows[0];
+}
+
 export async function createOrganisation(
   db: Db,
   name: string,

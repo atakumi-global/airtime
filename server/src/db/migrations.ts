@@ -227,4 +227,16 @@ export const migrations: Migration[] = [
       ALTER TABLE projects ADD COLUMN IF NOT EXISTS target_date date;
     `,
   },
+  {
+    id: '006_fx',
+    sql: `
+      CREATE TABLE IF NOT EXISTS fx_rates (
+        currency text NOT NULL,
+        rate_date date NOT NULL,
+        eur_rate numeric(18, 8) NOT NULL CHECK (eur_rate > 0),
+        fetched_at timestamptz NOT NULL DEFAULT now(),
+        PRIMARY KEY (currency, rate_date)
+      );
+    `,
+  },
 ];

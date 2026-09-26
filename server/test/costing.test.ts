@@ -152,7 +152,7 @@ test('budget reports spend, remaining, percent and overrun flags', async () => {
   await setRate(token, {
     scope: 'project',
     projectId,
-    currency: 'EUR',
+    currency: 'USD',
     hourlyAmount: 120,
   });
   await addEntry(token, 60);
@@ -161,7 +161,7 @@ test('budget reports spend, remaining, percent and overrun flags', async () => {
     method: 'PUT',
     url: `/api/projects/${projectId}/budget`,
     headers: auth(token),
-    payload: { amount: 100, currency: 'EUR' },
+    payload: { amount: 100, currency: 'USD' },
   });
   assert.equal(budget.statusCode, 200);
 
@@ -177,7 +177,7 @@ test('budget reports spend, remaining, percent and overrun flags', async () => {
     method: 'PUT',
     url: `/api/projects/${projectId}/budget`,
     headers: auth(token),
-    payload: { amount: 1000, currency: 'EUR' },
+    payload: { amount: 1000, currency: 'USD' },
   });
   assert.equal(warningBudget.statusCode, 200);
 

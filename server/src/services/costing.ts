@@ -1,5 +1,11 @@
 import type { Db } from '../db/pool.js';
 import type { EntryRow } from './timeEntries.js';
+import {
+  convertAmount,
+  getLatestRates,
+  type FxSnapshot,
+} from './fx.js';
+import { getPrimaryOrganisation } from './organisations.js';
 
 export type RateIndex = {
   member: Map<string, RateLookup>;
@@ -120,12 +126,18 @@ export async function getProjectBudgetSummary(
   );
   const entries = await loadEntriesForProject(db, organisationId, project.id);
   const index = await buildRateIndex(db, organisationId);
+  const organisation = await getPrimaryOrganisation(db);
+  const snapshot = await getLatestRates(db);
   return summarise(
     budgetRows[0] ?? null,
     entries,
     index,
     project.client_id,
     horizonForProject(project.target_date, fallbackHorizonDays),
+    {
+      reportingCurrency: organisation?.reporting_currency ?? 'USD',
+      snapshot,
+    },
   );
 }
 
@@ -138,6 +150,7 @@ export async function getProjectSummaries(
   clientByProject: Map<string, string | null>;
   targetDateByProject: Map<string, Date | string | null>;
   index: RateIndex;
+  fx: FxContext;
 }> {
   const budgets = new Map<string, { amount: string; currency: string }>();
   const budgetRows = await db.query<{
@@ -181,12 +194,18 @@ export async function getProjectSummaries(
   }
 
   const index = await buildRateIndex(db, organisationId);
+  const organisation = await getPrimaryOrganisation(db);
+  const snapshot = await getLatestRates(db);
   return {
     budgets,
     entriesByProject,
     clientByProject,
     targetDateByProject,
     index,
+    fx: {
+      reportingCurrency: organisation?.reporting_currency ?? 'USD',
+      snapshot,
+    },
   };
 }
 
@@ -204,6 +223,7 @@ export function summariseProject(
       data.targetDateByProject.get(projectId) ?? null,
       fallbackHorizonDays,
     ),
+    data.fx,
   );
 }
 
@@ -231,14 +251,30 @@ export function horizonForProject(
   return { days: fallbackDays, basis: 'default_horizon' };
 }
 
+export type FxContext = {
+  reportingCurrency: string;
+  snapshot: FxSnapshot;
+};
+
+export type ConversionInfo = {
+  rate: number;
+  date: string | null;
+  stale: boolean;
+};
+
 export type BudgetSummary = {
   budget: { amount: number; currency: string } | null;
+  convertedBudget: number | null;
   spent: number;
   remaining: number | null;
   percentUsed: number | null;
-  currency: string | null;
+  currency: string;
+  currencyTotals: Record<string, number>;
+  conversions: Record<string, ConversionInfo>;
+  fxStale: boolean;
+  fxDate: string | null;
+  unconverted: { entries: number; hours: number };
   uncosted: { entries: number; hours: number };
-  otherCurrencies: Record<string, number>;
   burnRatePerDay: number | null;
   projectedOverrun: number | null;
   projectionHorizonDays: number | null;
@@ -252,11 +288,17 @@ export function summarise(
   index: RateIndex,
   projectClientId: string | null | undefined,
   horizon: ProjectionHorizon,
+  fx: FxContext,
 ): BudgetSummary {
+  const reporting = fx.reportingCurrency.toUpperCase();
   let spent = 0;
   let uncostedEntries = 0;
   let uncostedMinutes = 0;
-  const otherCurrencies: Record<string, number> = {};
+  let unconvertedEntries = 0;
+  let unconvertedMinutes = 0;
+  let fxStale = false;
+  const currencyTotals: Record<string, number> = {};
+  const conversions: Record<string, ConversionInfo> = {};
   let earliest: number | null = null;
 
   for (const entry of entries) {
@@ -268,11 +310,30 @@ export function summarise(
       uncostedMinutes += entry.billable_minutes;
       continue;
     }
-    if (!budget || costed.currency === budget.currency) {
-      spent += costed.cost;
-    } else {
-      otherCurrencies[costed.currency] =
-        round4((otherCurrencies[costed.currency] ?? 0) + costed.cost);
+    currencyTotals[costed.currency] = round4(
+      (currencyTotals[costed.currency] ?? 0) + costed.cost,
+    );
+    const conversion = convertAmount(
+      costed.cost,
+      costed.currency,
+      reporting,
+      fx.snapshot,
+    );
+    if (!conversion) {
+      unconvertedEntries += 1;
+      unconvertedMinutes += entry.billable_minutes;
+      continue;
+    }
+    spent += conversion.amount;
+    if (costed.currency !== reporting) {
+      conversions[costed.currency] = {
+        rate: conversion.rate,
+        date: conversion.date,
+        stale: conversion.stale,
+      };
+      if (conversion.stale) {
+        fxStale = true;
+      }
     }
   }
   spent = round4(spent);
@@ -281,16 +342,25 @@ export function summarise(
     entries: uncostedEntries,
     hours: round4(uncostedMinutes / 60),
   };
+  const unconverted = {
+    entries: unconvertedEntries,
+    hours: round4(unconvertedMinutes / 60),
+  };
 
   if (!budget) {
     return {
       budget: null,
+      convertedBudget: null,
       spent,
       remaining: null,
       percentUsed: null,
-      currency: null,
+      currency: reporting,
+      currencyTotals,
+      conversions,
+      fxStale,
+      fxDate: fx.snapshot.date,
+      unconverted,
       uncosted,
-      otherCurrencies,
       burnRatePerDay: null,
       projectedOverrun: null,
       projectionHorizonDays: null,
@@ -300,8 +370,49 @@ export function summarise(
   }
 
   const amount = Number(budget.amount);
-  const remaining = round4(amount - spent);
-  const percentUsed = amount > 0 ? round4((spent / amount) * 100) : null;
+  const budgetConversion = convertAmount(
+    amount,
+    budget.currency,
+    reporting,
+    fx.snapshot,
+  );
+  if (budgetConversion && budget.currency.toUpperCase() !== reporting) {
+    conversions[budget.currency.toUpperCase()] = {
+      rate: budgetConversion.rate,
+      date: budgetConversion.date,
+      stale: budgetConversion.stale,
+    };
+    if (budgetConversion.stale) {
+      fxStale = true;
+    }
+  }
+  const convertedBudget = budgetConversion?.amount ?? null;
+
+  if (convertedBudget === null) {
+    return {
+      budget: { amount, currency: budget.currency },
+      convertedBudget: null,
+      spent,
+      remaining: null,
+      percentUsed: null,
+      currency: reporting,
+      currencyTotals,
+      conversions,
+      fxStale,
+      fxDate: fx.snapshot.date,
+      unconverted,
+      uncosted,
+      burnRatePerDay: null,
+      projectedOverrun: null,
+      projectionHorizonDays: horizon.days,
+      projectionBasis: horizon.basis,
+      flag: 'none',
+    };
+  }
+
+  const remaining = round4(convertedBudget - spent);
+  const percentUsed =
+    convertedBudget > 0 ? round4((spent / convertedBudget) * 100) : null;
 
   const elapsedDays =
     earliest === null
@@ -311,23 +422,28 @@ export function summarise(
   const projectedTotal =
     burnRatePerDay === null ? null : spent + burnRatePerDay * horizon.days;
   const projectedOverrun =
-    projectedTotal === null ? null : round4(projectedTotal - amount);
+    projectedTotal === null ? null : round4(projectedTotal - convertedBudget);
 
   let flag: BudgetSummary['flag'] = 'ok';
-  if (spent > amount) {
+  if (spent > convertedBudget) {
     flag = 'over';
-  } else if (amount > 0 && remaining < amount * 0.1) {
+  } else if (convertedBudget > 0 && remaining < convertedBudget * 0.1) {
     flag = 'warning';
   }
 
   return {
     budget: { amount, currency: budget.currency },
+    convertedBudget,
     spent,
     remaining,
     percentUsed,
-    currency: budget.currency,
+    currency: reporting,
+    currencyTotals,
+    conversions,
+    fxStale,
+    fxDate: fx.snapshot.date,
+    unconverted,
     uncosted,
-    otherCurrencies,
     burnRatePerDay,
     projectedOverrun,
     projectionHorizonDays: horizon.days,

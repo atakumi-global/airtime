@@ -87,6 +87,22 @@ back to a fixed `PROJECTION_HORIZON_DAYS` (default 30) and report
 `warning` when less than 10 percent remains. `GET /api/projects?withBudget=true`
 adds the same summary to every project row so lists can flag at-risk projects.
 
+## Multi-currency
+
+Each workspace has a reporting currency (`PATCH /api/organisation`, administrator
+only, audited). Amounts are stored in their original currency and converted when
+read, using daily rates from Frankfurter (European Central Bank reference rates,
+EUR-based), which needs no API key. Set `FX_PROVIDER_URL` to any compatible
+endpoint; `FX_REFRESH_HOURS` (default 24) controls the scheduler, and
+`POST /api/fx/refresh` forces a fetch.
+
+Every budget summary reports `spent` in the reporting currency, a
+`currencyTotals` breakdown of the original amounts, and a `conversions` entry per
+currency with the rate and its date. If the provider is unavailable, the last
+stored rates are used and marked `fxStale`, so totals still render. A cost in a
+currency the provider does not publish is counted under `unconverted` and left
+out of totals rather than crashing the view.
+
 ## Roles
 
 | Role | Capabilities |
@@ -122,6 +138,10 @@ caller without the role.
 | `PUT` | `/api/rates` | manager, administrator |
 | `DELETE` | `/api/rates/:id` | manager, administrator |
 | `GET` | `/api/audit` | administrator |
+| `GET` | `/api/organisation` | any authenticated member |
+| `PATCH` | `/api/organisation` | administrator |
+| `GET` | `/api/fx/rates` | any authenticated member |
+| `POST` | `/api/fx/refresh` | administrator |
 | `GET` | `/api/plane/connection` | any authenticated member |
 | `PUT` | `/api/plane/connection` | any authenticated member |
 | `DELETE` | `/api/plane/connection` | any authenticated member |

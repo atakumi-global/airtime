@@ -11,6 +11,8 @@ export type AppConfig = {
   syncPollSeconds: number;
   syncPollEnabled: boolean;
   projectionHorizonDays: number;
+  fxProviderUrl: string;
+  fxRefreshHours: number;
   bootstrap: {
     orgName: string;
     email: string;
@@ -57,6 +59,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     syncPollSeconds: Number(env.SYNC_POLL_SECONDS ?? 60),
     syncPollEnabled: (env.SYNC_POLL_ENABLED ?? 'true') !== 'false',
     projectionHorizonDays: Number(env.PROJECTION_HORIZON_DAYS ?? 30),
+    fxProviderUrl:
+      env.FX_PROVIDER_URL ?? 'https://api.frankfurter.dev/v1/latest',
+    fxRefreshHours: Number(env.FX_REFRESH_HOURS ?? 24),
     bootstrap: {
       orgName: env.BOOTSTRAP_ORG_NAME ?? 'Airtime',
       email: env.BOOTSTRAP_ADMIN_EMAIL ?? 'admin@example.com',
