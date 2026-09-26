@@ -8,6 +8,7 @@ export type AppConfig = {
   cookieSecret: string;
   baseUrl: string;
   tokenEncryptionKey: string | null;
+  corsOrigins: string[];
   syncPollSeconds: number;
   syncPollEnabled: boolean;
   projectionHorizonDays: number;
@@ -56,6 +57,13 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     cookieSecret: env.COOKIE_SECRET ?? requireEnv('APP_JWT_SECRET'),
     baseUrl,
     tokenEncryptionKey: env.TOKEN_ENCRYPTION_KEY?.trim() || null,
+    corsOrigins: (
+      env.CORS_ORIGINS ??
+      'tauri://localhost,http://tauri.localhost,http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173'
+    )
+      .split(',')
+      .map((origin) => origin.trim())
+      .filter(Boolean),
     syncPollSeconds: Number(env.SYNC_POLL_SECONDS ?? 60),
     syncPollEnabled: (env.SYNC_POLL_ENABLED ?? 'true') !== 'false',
     projectionHorizonDays: Number(env.PROJECTION_HORIZON_DAYS ?? 30),

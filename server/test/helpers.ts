@@ -31,6 +31,7 @@ export const testConfig: AppConfig = {
   cookieSecret: 'test-cookie-secret',
   baseUrl: 'http://localhost:3000',
   tokenEncryptionKey: 'a'.repeat(64),
+  corsOrigins: ['tauri://localhost', 'http://tauri.localhost'],
   syncPollSeconds: 0,
   syncPollEnabled: false,
   projectionHorizonDays: 30,

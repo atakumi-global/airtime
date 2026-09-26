@@ -1,5 +1,6 @@
 import Fastify, { type FastifyInstance } from 'fastify';
 import cookie from '@fastify/cookie';
+import cors from '@fastify/cors';
 import type { AppConfig } from './config.js';
 import type { OidcService } from './auth/oidc.js';
 import type { Db } from './db/pool.js';
@@ -32,6 +33,12 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   });
 
   await app.register(cookie, { secret: deps.config.cookieSecret });
+  await app.register(cors, {
+    origin: deps.config.corsOrigins,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['content-type', 'authorization'],
+    maxAge: 600,
+  });
 
   setFeedbackSalt(deps.config.jwtSecret);
 

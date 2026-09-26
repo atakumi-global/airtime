@@ -34,6 +34,39 @@ test('GET /health reports the database is reachable', async () => {
   assert.deepEqual(response.json(), { status: 'ok', database: 'up' });
 });
 
+test('the desktop webview origin is allowed by CORS', async () => {
+  const preflight = await app.inject({
+    method: 'OPTIONS',
+    url: '/auth/login',
+    headers: {
+      origin: 'http://tauri.localhost',
+      'access-control-request-method': 'POST',
+      'access-control-request-headers': 'content-type,authorization',
+    },
+  });
+  assert.equal(preflight.statusCode, 204);
+  assert.equal(
+    preflight.headers['access-control-allow-origin'],
+    'http://tauri.localhost',
+  );
+
+  const request = await app.inject({
+    method: 'GET',
+    url: '/health',
+    headers: { origin: 'http://tauri.localhost' },
+  });
+  assert.equal(request.headers['access-control-allow-origin'], 'http://tauri.localhost');
+});
+
+test('an unknown browser origin is not granted CORS access', async () => {
+  const response = await app.inject({
+    method: 'GET',
+    url: '/health',
+    headers: { origin: 'https://evil.example' },
+  });
+  assert.equal(response.headers['access-control-allow-origin'], undefined);
+});
+
 test('GET / describes the service instead of returning a bare 404', async () => {
   const response = await app.inject({ method: 'GET', url: '/' });
   assert.equal(response.statusCode, 200);
