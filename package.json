@@ -1,0 +1,21 @@
+{
+  "name": "airtime",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Time tracking and budget management for self-hosted Plane.",
+  "license": "AGPL-3.0-only",
+  "workspaces": [
+    "server"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "npm run build -w server",
+    "test": "npm run test -w server",
+    "typecheck": "npm run typecheck -w server",
+    "lint": "npm run lint -w server",
+    "dev": "npm run dev -w server",
+    "start": "npm run start -w server"
+  }
+}
