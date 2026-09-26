@@ -14,6 +14,7 @@ import { planeRoutes } from './routes/plane.js';
 import { timeRoutes } from './routes/time.js';
 import { organisationRoutes } from './routes/organisation.js';
 import { fxRoutes } from './routes/fx.js';
+import { exportRoutes } from './routes/exports.js';
 import { parseEncryptionKey } from './crypto/tokens.js';
 
 export type AppDeps = {
@@ -44,6 +45,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   timeRoutes(app, deps);
   organisationRoutes(app, deps);
   fxRoutes(app, { db: deps.db, providerUrl: deps.config.fxProviderUrl });
+  exportRoutes(app, deps);
   planeRoutes(app, {
     db: deps.db,
     encryptionKey: deps.config.tokenEncryptionKey

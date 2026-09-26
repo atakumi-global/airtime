@@ -103,6 +103,18 @@ stored rates are used and marked `fxStale`, so totals still render. A cost in a
 currency the provider does not publish is counted under `unconverted` and left
 out of totals rather than crashing the view.
 
+## Export
+
+`GET /api/exports/time-entries.csv` exports one row per entry, filterable by
+`from`, `to`, `projectId` and `memberId`. Columns cover project, member, date,
+duration, work item, rate, currency and cost, plus the converted cost, reporting
+currency and the FX rate and date used. The file is UTF-8 with a BOM and CRLF
+line endings, and fields containing commas, quotes or newlines are quoted, so it
+opens directly in Excel.
+
+PDF export is deferred to AIRTIME-27 in the backlog so its layout gets a visual
+review first.
+
 ## Roles
 
 | Role | Capabilities |
@@ -142,6 +154,7 @@ caller without the role.
 | `PATCH` | `/api/organisation` | administrator |
 | `GET` | `/api/fx/rates` | any authenticated member |
 | `POST` | `/api/fx/refresh` | administrator |
+| `GET` | `/api/exports/time-entries.csv` | manager, administrator |
 | `GET` | `/api/plane/connection` | any authenticated member |
 | `PUT` | `/api/plane/connection` | any authenticated member |
 | `DELETE` | `/api/plane/connection` | any authenticated member |
