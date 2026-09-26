@@ -1,5 +1,4 @@
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
-import { isTauri } from './native';
 import type {
   FxRates,
   Member,
@@ -11,7 +10,9 @@ import type {
   WorkItem,
 } from './types';
 
-const defaultFetch = isTauri ? (tauriFetch as unknown as typeof fetch) : fetch;
+// Always use the Tauri HTTP plugin in the app: it avoids the WebView2
+// loopback restriction and CORS. Tests inject their own fetch.
+const defaultFetch = tauriFetch as unknown as typeof fetch;
 
 export class ApiError extends Error {
   readonly status: number;
@@ -70,8 +71,9 @@ export class ApiClient {
           ...(init.headers ?? {}),
         },
       });
-    } catch {
-      throw new NetworkError(`cannot reach ${this.baseUrl}${path}`);
+    } catch (cause) {
+      const reason = cause instanceof Error ? cause.message : String(cause);
+      throw new NetworkError(`cannot reach ${this.baseUrl}${path} (${reason})`);
     }
 
     if (!response.ok) {
