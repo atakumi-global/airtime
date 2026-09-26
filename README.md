@@ -141,6 +141,31 @@ out. The entry edit history itself is always kept, as v1.3 requires.
 Administrators can review events with `GET /api/feedback` and pull the anonymised
 dataset with `GET /api/feedback/export`.
 
+## Desktop client (Windows)
+
+`desktop/` is the Tauri v2 + React + TypeScript client, ported from the coded
+designs in `design/AIRTIME-16/v2`. It signs in to the Airtime server, caches
+projects, work items, entries and the running timer to disk so the first screen
+renders before any network call, queues back-filled entries while the server is
+unreachable, and keeps the session token in Windows Credential Manager - never
+in a file.
+
+```powershell
+cd desktop
+npm install
+npm run tauri dev      # development window with hot reload
+npm run tauri build    # NSIS installer under src-tauri/target/release
+```
+
+Implemented so far: sign-in; My time (week summary, entries, loading and empty
+states); back-fill dialog; always-visible timer bar with `Ctrl+Alt+T`; Projects
+with budget health flags and burn; Settings (account, anonymised feedback
+opt-in, FX status, Plane connect and sync). Reports, budget administration and
+the admin/onboarding screens are designed but not built yet.
+
+Checks: `npm test`, `npm run build`, `npm run lint`. The Rust side builds with
+`cargo check` inside `desktop/src-tauri` (needs Rust and the MSVC C++ tools).
+
 ## Roles
 
 | Role | Capabilities |
