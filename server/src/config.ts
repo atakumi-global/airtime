@@ -59,7 +59,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     tokenEncryptionKey: env.TOKEN_ENCRYPTION_KEY?.trim() || null,
     corsOrigins: (
       env.CORS_ORIGINS ??
-      'tauri://localhost,http://tauri.localhost,http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173'
+      'tauri://localhost,http://tauri.localhost,https://tauri.localhost,http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173,http://localhost:1420'
     )
       .split(',')
       .map((origin) => origin.trim())

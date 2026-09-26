@@ -29,7 +29,7 @@ services:
       APP_JWT_SECRET: ${APP_JWT_SECRET:-change-me-in-production}
       COOKIE_SECRET: ${COOKIE_SECRET:-change-me-in-production}
       TOKEN_ENCRYPTION_KEY: ${TOKEN_ENCRYPTION_KEY:-}
-      CORS_ORIGINS: ${CORS_ORIGINS:-tauri://localhost,http://tauri.localhost,http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173}
+      CORS_ORIGINS: ${CORS_ORIGINS:-tauri://localhost,http://tauri.localhost,https://tauri.localhost,http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173,http://localhost:1420}
       SYNC_POLL_SECONDS: ${SYNC_POLL_SECONDS:-60}
       SYNC_POLL_ENABLED: ${SYNC_POLL_ENABLED:-true}
       PROJECTION_HORIZON_DAYS: ${PROJECTION_HORIZON_DAYS:-30}

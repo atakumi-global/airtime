@@ -67,7 +67,7 @@ export class ApiClient {
         },
       });
     } catch {
-      throw new NetworkError();
+      throw new NetworkError(`cannot reach ${this.baseUrl}${path}`);
     }
 
     if (!response.ok) {
