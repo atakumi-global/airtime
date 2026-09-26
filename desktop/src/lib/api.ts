@@ -1,3 +1,5 @@
+import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
+import { isTauri } from './native';
 import type {
   FxRates,
   Member,
@@ -8,6 +10,8 @@ import type {
   TimeEntry,
   WorkItem,
 } from './types';
+
+const defaultFetch = isTauri ? (tauriFetch as unknown as typeof fetch) : fetch;
 
 export class ApiError extends Error {
   readonly status: number;
@@ -40,7 +44,7 @@ export class ApiClient {
   constructor(options: ApiClientOptions) {
     this.baseUrl = options.baseUrl.replace(/\/+$/, '');
     this.token = options.token ?? null;
-    this.fetchImpl = options.fetchImpl ?? fetch;
+    this.fetchImpl = options.fetchImpl ?? defaultFetch;
   }
 
   setToken(token: string | null): void {
