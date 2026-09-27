@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useApp } from '../state/AppContext';
 import { Badge, Field } from '../components/ui';
+import { currencyOptions } from '../lib/currency';
 
 export function Settings() {
   const {
@@ -13,7 +14,16 @@ export function Settings() {
     setFeedbackOptIn,
     savePlaneConnection,
     syncPlane,
+    updateReportingCurrency,
+    refreshFx,
   } = useApp();
+
+  const canAdmin = member?.role === 'administrator';
+  const [currency, setCurrency] = useState(
+    organisation?.reportingCurrency ?? 'EUR',
+  );
+  const [fxBusy, setFxBusy] = useState(false);
+  const [fxMessage, setFxMessage] = useState<string | null>(null);
 
   const [planeUrl, setPlaneUrl] = useState(
     planeConnection?.baseUrl ?? 'https://plane.example.com',
@@ -58,12 +68,45 @@ export function Settings() {
     }
   };
 
+  const saveCurrency = async () => {
+    setBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      await updateReportingCurrency(currency.toUpperCase());
+      setMessage(`Reporting currency set to ${currency.toUpperCase()}.`);
+    } catch (currencyError) {
+      setError(
+        currencyError instanceof Error
+          ? currencyError.message
+          : 'Could not update the reporting currency',
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const refreshRates = async () => {
+    setFxBusy(true);
+    setFxMessage(null);
+    try {
+      await refreshFx();
+      setFxMessage('Foreign-exchange rates refreshed.');
+    } catch (ratesError) {
+      setFxMessage(
+        ratesError instanceof Error ? ratesError.message : 'Could not refresh rates',
+      );
+    } finally {
+      setFxBusy(false);
+    }
+  };
+
   return (
     <div className="page">
       <div className="page-head">
         <div>
           <h1>Settings</h1>
-          <span className="sub">Account, Plane connection and privacy</span>
+          <span className="sub">Account, currency, Plane connection and privacy</span>
         </div>
       </div>
 
@@ -110,6 +153,64 @@ export function Settings() {
               ? `stale (last ${fx.date ?? 'unknown'})`
               : `current as of ${fx.date}`
             : 'not loaded'}
+        </p>
+      </section>
+
+      <section className="card card-pad stack">
+        <div className="section-title">
+          <h2>Currency and rates</h2>
+          <Badge tone={fx?.stale ? 'warning' : 'neutral'}>
+            {fx ? (fx.stale ? 'FX stale' : 'FX current') : 'FX unknown'}
+          </Badge>
+        </div>
+        <p className="muted small">
+          Every budget total converts to one reporting currency using the latest
+          daily rate. Rates come from Frankfurter (European Central Bank reference
+          rates) and need no API key.
+          {canAdmin ? '' : ' Only administrators can change these settings.'}
+        </p>
+        <div className="row" style={{ alignItems: 'flex-end', flexWrap: 'wrap' }}>
+          <div style={{ flex: 1, minWidth: 160 }}>
+            <Field label="Reporting currency">
+              <select
+                className="select"
+                value={currency}
+                disabled={!canAdmin}
+                onChange={(event) => setCurrency(event.target.value)}
+              >
+                {currencyOptions(currency).map((code) => (
+                  <option key={code} value={code}>
+                    {code}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </div>
+          {canAdmin ? (
+            <>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => void saveCurrency()}
+                disabled={busy || currency === organisation?.reportingCurrency}
+              >
+                Save currency
+              </button>
+              <button
+                type="button"
+                className="btn"
+                onClick={() => void refreshRates()}
+                disabled={fxBusy}
+              >
+                {fxBusy ? 'Refreshing…' : 'Refresh FX rates'}
+              </button>
+            </>
+          ) : null}
+        </div>
+        {fxMessage ? <div className="banner">{fxMessage}</div> : null}
+        <p className="muted small">
+          Latest known rate date: {fx?.date ?? 'unknown'} · base {fx?.base ?? 'EUR'}
+          {fx?.stale ? ' · the provider was unreachable, showing the last stored rate.' : ''}
         </p>
       </section>
 
