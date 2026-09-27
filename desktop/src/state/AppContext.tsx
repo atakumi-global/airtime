@@ -19,14 +19,19 @@ import {
 } from '../lib/native';
 import { startOfWeek } from '../lib/format';
 import type {
+  AuditEntry,
+  Budget,
   CacheSnapshot,
   EntryHistoryEvent,
+  FeedbackEvent,
   FxRates,
   Member,
   Organisation,
   PlaneConnection,
   Project,
   QueuedEntry,
+  Rate,
+  RateScope,
   RunningTimer,
   TimeEntry,
   WorkItem,
@@ -75,6 +80,42 @@ type AppValue = {
   updateEntry: (id: string, input: EntryUpdateInput) => Promise<void>;
   deleteEntry: (id: string) => Promise<void>;
   entryHistory: (id: string) => Promise<EntryHistoryEvent[]>;
+  getBudget: (projectId: string) => Promise<Budget | null>;
+  setBudget: (
+    projectId: string,
+    payload: { amount: number; currency: string },
+  ) => Promise<void>;
+  removeBudget: (projectId: string) => Promise<void>;
+  loadRates: () => Promise<Rate[]>;
+  setRate: (payload: {
+    scope: RateScope;
+    memberId?: string | null;
+    projectId?: string | null;
+    clientId?: string | null;
+    currency: string;
+    hourlyAmount: number;
+  }) => Promise<void>;
+  removeRate: (id: string) => Promise<void>;
+  loadMembers: () => Promise<Member[]>;
+  createMember: (payload: {
+    email: string;
+    displayName: string;
+    role: Member['role'];
+    password?: string;
+  }) => Promise<void>;
+  setMemberRole: (id: string, role: Member['role']) => Promise<void>;
+  removeMember: (id: string) => Promise<void>;
+  updateReportingCurrency: (currency: string) => Promise<void>;
+  refreshFx: () => Promise<void>;
+  loadAudit: (limit?: number) => Promise<AuditEntry[]>;
+  loadFeedback: (limit?: number) => Promise<FeedbackEvent[]>;
+  loadFeedbackExport: () => Promise<Record<string, unknown>[]>;
+  exportCsv: (params: {
+    from?: string;
+    to?: string;
+    projectId?: string;
+    memberId?: string;
+  }) => Promise<string>;
   setFeedbackOptIn: (optIn: boolean) => Promise<void>;
   savePlaneConnection: (input: {
     baseUrl: string;
@@ -461,6 +502,100 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [ensureClient],
   );
 
+  const setBudget = useCallback(
+    async (projectId: string, payload: { amount: number; currency: string }) => {
+      await ensureClient().setBudget(projectId, payload);
+      await refresh();
+    },
+    [ensureClient, refresh],
+  );
+
+  const removeBudget = useCallback(
+    async (projectId: string) => {
+      await ensureClient().deleteBudget(projectId);
+      await refresh();
+    },
+    [ensureClient, refresh],
+  );
+
+  const setRate: AppValue['setRate'] = useCallback(
+    async (payload) => {
+      await ensureClient().setRate(payload);
+    },
+    [ensureClient],
+  );
+
+  const removeRate = useCallback(
+    async (id: string) => {
+      await ensureClient().deleteRate(id);
+    },
+    [ensureClient],
+  );
+
+  const createMember: AppValue['createMember'] = useCallback(
+    async (payload) => {
+      await ensureClient().createMember(payload);
+    },
+    [ensureClient],
+  );
+
+  const setMemberRole = useCallback(
+    async (id: string, role: Member['role']) => {
+      await ensureClient().updateMemberRole(id, role);
+    },
+    [ensureClient],
+  );
+
+  const removeMember = useCallback(
+    async (id: string) => {
+      await ensureClient().removeMember(id);
+    },
+    [ensureClient],
+  );
+
+  const updateReportingCurrency = useCallback(
+    async (currency: string) => {
+      const updated = await ensureClient().updateReportingCurrency(currency);
+      setOrganisation(updated);
+      await refresh();
+    },
+    [ensureClient, refresh],
+  );
+
+  const refreshFx = useCallback(async () => {
+    const rates = await ensureClient().refreshFx();
+    setFx(rates);
+  }, [ensureClient]);
+
+  const getBudget = useCallback(
+    async (projectId: string) => ensureClient().budget(projectId),
+    [ensureClient],
+  );
+
+  const loadRates = useCallback(async () => ensureClient().rates(), [ensureClient]);
+  const loadMembers = useCallback(async () => ensureClient().members(), [ensureClient]);
+  const loadAudit = useCallback(
+    async (limit?: number) => ensureClient().audit(limit),
+    [ensureClient],
+  );
+  const loadFeedback = useCallback(
+    async (limit?: number) => ensureClient().feedbackEvents(limit),
+    [ensureClient],
+  );
+  const loadFeedbackExport = useCallback(
+    async () => ensureClient().feedbackExport(),
+    [ensureClient],
+  );
+  const exportCsv = useCallback(
+    async (params: {
+      from?: string;
+      to?: string;
+      projectId?: string;
+      memberId?: string;
+    }) => ensureClient().exportTimeEntriesCsv(params),
+    [ensureClient],
+  );
+
   const setFeedbackOptIn = useCallback(
     async (optIn: boolean) => {
       const updated = await ensureClient().setFeedbackOptIn(optIn);
@@ -511,6 +646,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
       updateEntry,
       deleteEntry,
       entryHistory,
+      getBudget,
+      setBudget,
+      removeBudget,
+      loadRates,
+      setRate,
+      removeRate,
+      loadMembers,
+      createMember,
+      setMemberRole,
+      removeMember,
+      updateReportingCurrency,
+      refreshFx,
+      loadAudit,
+      loadFeedback,
+      loadFeedbackExport,
+      exportCsv,
       setFeedbackOptIn,
       savePlaneConnection,
       syncPlane,
@@ -545,6 +696,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
       updateEntry,
       deleteEntry,
       entryHistory,
+      getBudget,
+      setBudget,
+      removeBudget,
+      loadRates,
+      setRate,
+      removeRate,
+      loadMembers,
+      createMember,
+      setMemberRole,
+      removeMember,
+      updateReportingCurrency,
+      refreshFx,
+      loadAudit,
+      loadFeedback,
+      loadFeedbackExport,
+      exportCsv,
       setFeedbackOptIn,
       savePlaneConnection,
       syncPlane,

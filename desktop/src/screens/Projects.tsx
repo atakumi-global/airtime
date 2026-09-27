@@ -1,10 +1,15 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useApp } from '../state/AppContext';
 import { Badge, healthBadge } from '../components/ui';
+import { BudgetDialog } from '../components/BudgetDialog';
 import { formatMoney } from '../lib/format';
+import type { Project } from '../lib/types';
 
 export function Projects() {
-  const { projects, workItems, organisation, online } = useApp();
+  const { member, projects, workItems, organisation, online } = useApp();
+  const [editing, setEditing] = useState<Project | null>(null);
+  const canManage =
+    member?.role === 'manager' || member?.role === 'administrator';
 
   const openCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -77,6 +82,7 @@ export function Projects() {
                   Margin
                 </th>
                 <th scope="col">Burn</th>
+                {canManage ? <th scope="col" /> : null}
               </tr>
             </thead>
             <tbody>
@@ -162,6 +168,17 @@ export function Projects() {
                         <span className="muted small">—</span>
                       )}
                     </td>
+                    {canManage ? (
+                      <td className="num">
+                        <button
+                          type="button"
+                          className="btn btn-sm"
+                          onClick={() => setEditing(project)}
+                        >
+                          {summary?.budget ? 'Edit budget' : 'Set budget'}
+                        </button>
+                      </td>
+                    ) : null}
                   </tr>
                 );
               })}
@@ -169,6 +186,14 @@ export function Projects() {
           </table>
         )}
       </section>
+
+      {editing ? (
+        <BudgetDialog
+          project={editing}
+          defaultCurrency={organisation?.reportingCurrency ?? 'EUR'}
+          onClose={() => setEditing(null)}
+        />
+      ) : null}
     </div>
   );
 }

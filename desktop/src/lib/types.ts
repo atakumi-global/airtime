@@ -117,6 +117,46 @@ export type Organisation = {
   reportingCurrency: string;
 };
 
+export type Budget = {
+  id: string;
+  project_id: string;
+  amount: string;
+  currency: string;
+};
+
+export type RateScope = 'member' | 'project' | 'client';
+
+export type Rate = {
+  id: string;
+  scope: RateScope;
+  member_id: string | null;
+  project_id: string | null;
+  client_id: string | null;
+  currency: string;
+  hourly_amount: string;
+};
+
+export type AuditEntry = {
+  id: string;
+  actor_member_id: string;
+  action: string;
+  entity_type: string;
+  entity_id: string | null;
+  before_state: Record<string, unknown> | null;
+  after_state: Record<string, unknown> | null;
+  created_at: string;
+};
+
+export type FeedbackEvent = {
+  id: string;
+  member_hash: string;
+  action: string;
+  source: string | null;
+  before_state: Record<string, unknown> | null;
+  after_state: Record<string, unknown> | null;
+  created_at: string;
+};
+
 export type QueuedEntry = {
   id: string;
   payload: Record<string, unknown>;

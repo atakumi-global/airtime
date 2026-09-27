@@ -3,7 +3,7 @@ import { useApp } from '../state/AppContext';
 import { Badge } from './ui';
 import { TimerBar } from './TimerBar';
 
-export type View = 'time' | 'projects' | 'settings';
+export type View = 'time' | 'projects' | 'rates' | 'settings';
 
 const NAV_TRACK: Array<{ id: View; label: string; icon: string }> = [
   { id: 'time', label: 'My time', icon: '◷' },
@@ -81,7 +81,12 @@ export function Shell({
             </span>
             Projects
           </button>
-          <button type="button" className="nav-item" disabled>
+          <button
+            type="button"
+            className="nav-item"
+            aria-current={view === 'rates' ? 'page' : undefined}
+            onClick={() => onNavigate('rates')}
+          >
             <span className="icon" aria-hidden="true">
               ⊙
             </span>
