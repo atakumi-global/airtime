@@ -157,11 +157,16 @@ npm run tauri dev      # development window with hot reload
 npm run tauri build    # NSIS installer under src-tauri/target/release
 ```
 
-Implemented so far: sign-in; My time (week summary, entries, loading and empty
-states); back-fill dialog; always-visible timer bar with `Ctrl+Alt+T`; Projects
-with budget health flags and burn; Settings (account, anonymised feedback
-opt-in, FX status, Plane connect and sync). Reports, budget administration and
-the admin/onboarding screens are designed but not built yet.
+Implemented: sign-in and cache-first boot; My time (week summary, entries, edit
+and delete with history and undo, loading and empty states); back-fill dialog;
+always-visible timer bar with `Ctrl+Alt+T`; Projects with budget health flags
+and burn, and a budget dialog for managers; Budgets (member, project and client
+rates); Reports with filtered CSV export; Admin (members and roles, audit log,
+anonymised feedback review and export); Settings (account, feedback opt-in, FX
+status and refresh, reporting currency, Plane connect and sync).
+
+PDF export is deferred to AIRTIME-27 so its layout gets a visual review first;
+CSV is the supported export in this release.
 
 Checks: `npm test`, `npm run build`, `npm run lint`. The Rust side builds with
 `cargo check` inside `desktop/src-tauri` (needs Rust and the MSVC C++ tools).
