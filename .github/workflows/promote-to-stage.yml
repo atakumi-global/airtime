@@ -1,0 +1,25 @@
+name: Promote to stage
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: promote-stage
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Fast-forward stage to dev
+        run: |
+          git fetch origin dev stage
+          git checkout -B stage origin/stage
+          git merge --ff-only origin/dev
+          git push origin stage
