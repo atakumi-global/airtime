@@ -3,7 +3,13 @@ import { useApp } from '../state/AppContext';
 import { Badge } from './ui';
 import { TimerBar } from './TimerBar';
 
-export type View = 'time' | 'projects' | 'rates' | 'reports' | 'settings';
+export type View =
+  | 'time'
+  | 'projects'
+  | 'rates'
+  | 'reports'
+  | 'admin'
+  | 'settings';
 
 const NAV_TRACK: Array<{ id: View; label: string; icon: string }> = [
   { id: 'time', label: 'My time', icon: '◷' },
@@ -24,6 +30,7 @@ export function Shell({
     useApp();
   const canManage =
     member?.role === 'manager' || member?.role === 'administrator';
+  const canAdmin = member?.role === 'administrator';
 
   const initials = (member?.displayName ?? '?')
     .split(' ')
@@ -106,6 +113,19 @@ export function Shell({
         </nav>
 
         <nav className="nav-group" aria-label="Settings" style={{ marginTop: 'auto' }}>
+          {canAdmin ? (
+            <button
+              type="button"
+              className="nav-item"
+              aria-current={view === 'admin' ? 'page' : undefined}
+              onClick={() => onNavigate('admin')}
+            >
+              <span className="icon" aria-hidden="true">
+                ⚑
+              </span>
+              Admin
+            </button>
+          ) : null}
           <button
             type="button"
             className="nav-item"

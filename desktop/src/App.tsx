@@ -7,6 +7,7 @@ import { MyTime } from './screens/MyTime';
 import { Projects } from './screens/Projects';
 import { Rates } from './screens/Rates';
 import { Reports } from './screens/Reports';
+import { Admin } from './screens/Admin';
 import { Settings } from './screens/Settings';
 
 function Authenticated() {
@@ -37,6 +38,7 @@ function Authenticated() {
         {view === 'projects' ? <Projects /> : null}
         {view === 'rates' ? <Rates /> : null}
         {view === 'reports' ? <Reports /> : null}
+        {view === 'admin' ? <Admin /> : null}
         {view === 'settings' ? <Settings /> : null}
       </Shell>
       {backfill ? <BackfillDialog onClose={() => setBackfill(false)} /> : null}
