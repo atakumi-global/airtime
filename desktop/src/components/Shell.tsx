@@ -3,7 +3,7 @@ import { useApp } from '../state/AppContext';
 import { Badge } from './ui';
 import { TimerBar } from './TimerBar';
 
-export type View = 'time' | 'projects' | 'rates' | 'settings';
+export type View = 'time' | 'projects' | 'rates' | 'reports' | 'settings';
 
 const NAV_TRACK: Array<{ id: View; label: string; icon: string }> = [
   { id: 'time', label: 'My time', icon: '◷' },
@@ -22,6 +22,8 @@ export function Shell({
 }) {
   const { member, organisation, refreshing, refresh, online, error, notice, dismiss } =
     useApp();
+  const canManage =
+    member?.role === 'manager' || member?.role === 'administrator';
 
   const initials = (member?.displayName ?? '?')
     .split(' ')
@@ -60,12 +62,19 @@ export function Shell({
             </span>
             Back-fill
           </button>
-          <button type="button" className="nav-item" disabled>
-            <span className="icon" aria-hidden="true">
-              ▤
-            </span>
-            Reports
-          </button>
+          {canManage ? (
+            <button
+              type="button"
+              className="nav-item"
+              aria-current={view === 'reports' ? 'page' : undefined}
+              onClick={() => onNavigate('reports')}
+            >
+              <span className="icon" aria-hidden="true">
+                ▤
+              </span>
+              Reports
+            </button>
+          ) : null}
         </nav>
 
         <nav className="nav-group" aria-label="Manage">
@@ -81,17 +90,19 @@ export function Shell({
             </span>
             Projects
           </button>
-          <button
-            type="button"
-            className="nav-item"
-            aria-current={view === 'rates' ? 'page' : undefined}
-            onClick={() => onNavigate('rates')}
-          >
-            <span className="icon" aria-hidden="true">
-              ⊙
-            </span>
-            Budgets
-          </button>
+          {canManage ? (
+            <button
+              type="button"
+              className="nav-item"
+              aria-current={view === 'rates' ? 'page' : undefined}
+              onClick={() => onNavigate('rates')}
+            >
+              <span className="icon" aria-hidden="true">
+                ⊙
+              </span>
+              Budgets
+            </button>
+          ) : null}
         </nav>
 
         <nav className="nav-group" aria-label="Settings" style={{ marginTop: 'auto' }}>
