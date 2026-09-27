@@ -5,15 +5,16 @@ Airtime reads projects and work items from Plane with a per-user API token and
 adds time-and-materials budgets, rates, burn and export on top, without changing
 Plane.
 
-This repository currently contains the **Airtime server**: the service that owns
-shared state - accounts, roles, projects, rates, budgets and time entries - plus
-its PostgreSQL schema, OIDC/local sign-in, role-based access control, financial
-audit log and Docker deployment (work item `AIRTIME-3`, v1.1). It reads projects
-and work items from Plane using a per-user API token, stored encrypted at rest,
-kept fresh by webhooks and a polling fallback (work item `AIRTIME-4`, v1.2). It
-records time with a one-timer-per-member start/stop and manual back-fill, a
-10-minute billable minimum and a full edit history (work item `AIRTIME-5`, v1.3).
-The Windows desktop client lands in a later work item (`AIRTIME-9`).
+This repository currently contains the **Airtime server** (`server/`): the
+service that owns shared state - accounts, roles, projects, rates, budgets and
+time entries - plus its PostgreSQL schema, OIDC/local sign-in, role-based access
+control, financial audit log and Docker deployment (work item `AIRTIME-3`,
+v1.1). It reads projects and work items from Plane using a per-user API token,
+stored encrypted at rest, kept fresh by webhooks and a polling fallback (work
+item `AIRTIME-4`, v1.2). It records time with a one-timer-per-member start/stop
+and manual back-fill, a 10-minute billable minimum and a full edit history
+(work item `AIRTIME-5`, v1.3). The **Windows desktop client** lives in
+`desktop/` (work item `AIRTIME-9`, v1.7) and is described further down.
 
 The coded design system and product screens live under `design/AIRTIME-16/v2`.
 
@@ -268,6 +269,15 @@ docker run -d --name airtime-test-pg \
   -p 6010:5432 postgres:16-alpine
 TEST_DATABASE_URL=postgres://airtime:airtime@localhost:6010/airtime_test npm test
 ```
+
+## Branches
+
+`dev` is the default branch and integration point; feature branches merge into
+it. `stage` is pre-production and `prod` is production. Promotion is manual:
+run **Promote to stage** (`dev` -> `stage`) or **Promote to prod**
+(`stage` -> `prod`) from the Actions tab. Both are fast-forward only and fail if
+the target has diverged. CI runs on pushes and pull requests to these three
+branches. The GitHub Pages design site still builds from `design/AIRTIME-16`.
 
 ## Licence
 

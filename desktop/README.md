@@ -24,7 +24,7 @@ What lives where:
 - `src/state` - application state: session, cache-first boot, offline queue,
   timer.
 - `src/components` - shell, timer bar, back-fill dialog, primitives.
-- `src/screens` - Login, My time, Projects, Settings.
+- `src/screens` - Login, My time, Projects, Budgets, Reports, Admin, Settings.
 - `src-tauri` - Rust commands for secrets and cache, window configuration.
 
 Two Windows gotchas are already handled, both of which produce a misleading
