@@ -26,3 +26,14 @@ What lives where:
 - `src/components` - shell, timer bar, back-fill dialog, primitives.
 - `src/screens` - Login, My time, Projects, Settings.
 - `src-tauri` - Rust commands for secrets and cache, window configuration.
+
+Two Windows gotchas are already handled, both of which produce a misleading
+"network unreachable" on sign-in:
+
+- The WebView2 may not connect to loopback from an unpackaged app, so all API
+  calls go through `tauri-plugin-http` (reqwest in the host process) rather than
+  the webview `fetch`.
+- The HTTP plugin requires scoped permissions for each command it uses:
+  `http:allow-fetch`, `http:allow-fetch-send` and `http:allow-fetch-read-body`
+  in `src-tauri/capabilities/default.json`, with the URL patterns allowed. A
+  missing one reads as "url not allowed on the configured scope".
