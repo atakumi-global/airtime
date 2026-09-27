@@ -8,8 +8,8 @@ where the build stands, what is verified, and what is left.
 - Branch model: `dev` (GitHub default) -> `stage` -> `prod`, promoted by the
   manual **Promote to stage** / **Promote to prod** actions. `design/AIRTIME-16`
   stays the source branch for the GitHub Pages design site.
-- Work sits on local `feature/AIRTIME-55`, 32 commits ahead of every remote
-  branch (not pushed).
+- Work sits on `feature/AIRTIME-55` and is pushed to `dev` (`6311646`). `stage`
+  and `prod` still point at the design commit until promoted.
 - Working tree clean; lockfiles, docs and CI tidied this session.
 - Local stack is up and healthy: PostgreSQL container and the dev server
   (`.\air.ps1 status` reports `/health` ok).
@@ -97,7 +97,8 @@ Sign in as the bootstrap administrator from `.env` and check:
   `/api/exports/time-entries.csv`, `/api/plane/connection`,
   `/api/plane/work-items`.
 - `docker compose -f docker-compose.yml config` parses; the three workflows
-  parse as YAML.
+  parse as YAML. CI on the first `dev` push (run `36345186389`) is green:
+  server and desktop jobs both pass.
 - Note: a branch push made by the promote actions with `GITHUB_TOKEN` does not
   re-trigger CI on the target branch, so confirm the source branch was green
   before promoting.
@@ -170,5 +171,5 @@ AIRTIME-1, AIRTIME-3, AIRTIME-4, AIRTIME-16, AIRTIME-26.
 - Other tickets: `/work-issue AIRTIME-28`.
 - Approvals: move AIRTIME-5, 7, 9, 10, 55 to Done; decide on 6 and 8; decide on
   the Design 1–8 children.
-- Promote: push `feature/AIRTIME-55` to `dev` (or open a PR), then run the manual
-  promotion actions to advance `stage` and `prod`.
+- Promote: run the manual **Promote to stage** and **Promote to prod** actions
+  once the dev work is signed off.
