@@ -98,7 +98,15 @@ export async function removeMember(
       RETURNING *`,
     [organisationId, memberId],
   );
-  return rows[0];
+  const member = rows[0];
+  if (!member) {
+    return undefined;
+  }
+  await db.query(
+    'DELETE FROM plane_connections WHERE organisation_id = $1 AND member_id = $2',
+    [organisationId, memberId],
+  );
+  return member;
 }
 
 export async function setFeedbackOptIn(

@@ -4,6 +4,7 @@ import { after, before, beforeEach, test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { FastifyInstance } from 'fastify';
 import { decryptToken, parseEncryptionKey } from '../src/crypto/tokens.js';
+import { listActiveConnections } from '../src/services/connections.js';
 import {
   auth,
   getDb,
@@ -227,4 +228,100 @@ test('a webhook triggers a sync for its connection', async () => {
   });
   assert.equal(response.statusCode, 202);
   assert.equal(response.json().sync.workItems, 2);
+});
+
+test('removing a member stops their Plane sync and keeps their entries', async () => {
+  const { admin, member } = await seed();
+  const memberToken = await connect(VALID_TOKEN, member.email);
+
+  const entry = await app.inject({
+    method: 'POST',
+    url: '/api/time-entries',
+    headers: auth(memberToken),
+    payload: { workItemId: 'i1', date: '2026-09-20', durationMinutes: 30 },
+  });
+  assert.equal(entry.statusCode, 201);
+
+  const connection = await app.inject({
+    method: 'GET',
+    url: '/api/plane/connection',
+    headers: auth(memberToken),
+  });
+  const webhookPath = connection.json().connection.webhookPath as string;
+
+  const adminToken = await login(app, admin.email, admin.password);
+  const removed = await app.inject({
+    method: 'DELETE',
+    url: `/api/members/${member.id}`,
+    headers: auth(adminToken),
+  });
+  assert.equal(removed.statusCode, 200);
+
+  const db = getDb();
+  const connections = await db.query(
+    'SELECT id FROM plane_connections WHERE member_id = $1',
+    [member.id],
+  );
+  assert.equal(connections.length, 0, 'connection must be deleted');
+  assert.equal(
+    (await listActiveConnections(db)).length,
+    0,
+    'poll sync must have nothing to sync',
+  );
+
+  const webhook = await app.inject({
+    method: 'POST',
+    url: webhookPath,
+    payload: { event: 'issue.updated', data: { id: 'i1' } },
+  });
+  assert.equal(webhook.statusCode, 404);
+
+  const manual = await app.inject({
+    method: 'POST',
+    url: '/api/plane/sync',
+    headers: auth(memberToken),
+  });
+  assert.equal(manual.statusCode, 401);
+
+  const remaining = await db.query(
+    'SELECT count(*)::int AS count FROM time_entries WHERE member_id = $1',
+    [member.id],
+  );
+  assert.equal(remaining[0]!.count, 1);
+});
+
+test('poll and webhook skip a connection whose member is not active', async () => {
+  const { manager } = await seed();
+  const managerToken = await connect(VALID_TOKEN, manager.email);
+
+  const db = getDb();
+  const rows = await db.query<{ webhook_secret: string }>(
+    'SELECT webhook_secret FROM plane_connections WHERE member_id = $1',
+    [manager.id],
+  );
+  const webhookSecret = rows[0]!.webhook_secret;
+
+  await db.query(`UPDATE members SET status = 'removed' WHERE id = $1`, [
+    manager.id,
+  ]);
+
+  assert.equal(
+    (await listActiveConnections(db)).length,
+    0,
+    'removed member connection must not be polled',
+  );
+
+  const webhook = await app.inject({
+    method: 'POST',
+    url: `/api/plane/webhook/${webhookSecret}`,
+    payload: { event: 'issue.updated', data: { id: 'i1' } },
+  });
+  assert.equal(webhook.statusCode, 404);
+
+  const manual = await app.inject({
+    method: 'POST',
+    url: '/api/plane/sync',
+    headers: auth(managerToken),
+  });
+  assert.equal(manual.statusCode, 401);
 });

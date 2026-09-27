@@ -46,7 +46,9 @@ export async function getConnectionByWebhookSecret(
   secret: string,
 ): Promise<PlaneConnectionRow | undefined> {
   const rows = await db.query<PlaneConnectionRow>(
-    'SELECT * FROM plane_connections WHERE webhook_secret = $1',
+    `SELECT c.* FROM plane_connections c
+       JOIN members m ON m.id = c.member_id
+      WHERE c.webhook_secret = $1 AND m.status = 'active'`,
     [secret],
   );
   return rows[0];
@@ -56,7 +58,10 @@ export async function listActiveConnections(
   db: Db,
 ): Promise<PlaneConnectionRow[]> {
   return db.query<PlaneConnectionRow>(
-    'SELECT * FROM plane_connections ORDER BY created_at ASC',
+    `SELECT c.* FROM plane_connections c
+       JOIN members m ON m.id = c.member_id
+      WHERE m.status = 'active'
+      ORDER BY c.created_at ASC`,
   );
 }
 
