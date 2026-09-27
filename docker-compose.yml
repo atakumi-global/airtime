@@ -25,8 +25,10 @@ services:
     environment:
       HOST: 0.0.0.0
       PORT: 3000
+      LOG_LEVEL: ${LOG_LEVEL:-info}
       DATABASE_URL: postgres://${POSTGRES_USER:-airtime}:${POSTGRES_PASSWORD:-airtime}@postgres:5432/${POSTGRES_DB:-airtime}
       APP_JWT_SECRET: ${APP_JWT_SECRET:-change-me-in-production}
+      APP_JWT_TTL: ${APP_JWT_TTL:-12h}
       COOKIE_SECRET: ${COOKIE_SECRET:-change-me-in-production}
       TOKEN_ENCRYPTION_KEY: ${TOKEN_ENCRYPTION_KEY:-}
       CORS_ORIGINS: ${CORS_ORIGINS:-tauri://localhost,http://tauri.localhost,https://tauri.localhost,http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173,http://localhost:1420}
