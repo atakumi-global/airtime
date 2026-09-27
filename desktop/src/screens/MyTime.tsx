@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
-import { useApp } from '../state/AppContext';
+import { useApp, type EntryUpdateInput } from '../state/AppContext';
 import { Metric, Badge } from '../components/ui';
+import { EntryDialog } from '../components/EntryDialog';
 import {
   formatDayHeading,
   formatDuration,
@@ -24,8 +25,14 @@ function groupByDay(entries: TimeEntry[]): Map<string, TimeEntry[]> {
 }
 
 export function MyTime({ onBackfill }: { onBackfill: () => void }) {
-  const { entries, workItems, timer, organisation, online } = useApp();
+  const { entries, workItems, timer, organisation, online, updateEntry } =
+    useApp();
   const [filter, setFilter] = useState('');
+  const [editing, setEditing] = useState<TimeEntry | null>(null);
+  const [undo, setUndo] = useState<{
+    id: string;
+    previous: EntryUpdateInput;
+  } | null>(null);
 
   const weekStart = startOfWeek().getTime();
   const today = new Date().toDateString();
@@ -166,6 +173,16 @@ export function MyTime({ onBackfill }: { onBackfill: () => void }) {
                       <span className="entry-amount">
                         {formatDuration(entry.duration_minutes)}
                       </span>
+                      <span className="entry-actions">
+                        <button
+                          type="button"
+                          className="btn btn-sm"
+                          onClick={() => setEditing(entry)}
+                          aria-label={`Edit entry ${formatTime(entry.started_at)}`}
+                        >
+                          Edit
+                        </button>
+                      </span>
                     </div>
                   );
                 })}
@@ -174,6 +191,42 @@ export function MyTime({ onBackfill }: { onBackfill: () => void }) {
           })
         )}
       </section>
+
+      {editing ? (
+        <EntryDialog
+          entry={editing}
+          onClose={() => setEditing(null)}
+          onSaved={(previous) => {
+            setUndo({ id: editing.id, previous });
+            setEditing(null);
+          }}
+        />
+      ) : null}
+
+      {undo ? (
+        <div className="toast" role="status">
+          <span className="grow">Entry updated.</span>
+          <button
+            type="button"
+            className="btn btn-sm"
+            onClick={() => {
+              const target = undo;
+              setUndo(null);
+              void updateEntry(target.id, target.previous);
+            }}
+          >
+            Undo
+          </button>
+          <button
+            type="button"
+            className="btn btn-sm"
+            onClick={() => setUndo(null)}
+            aria-label="Dismiss"
+          >
+            Dismiss
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }

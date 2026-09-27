@@ -20,6 +20,7 @@ import {
 import { startOfWeek } from '../lib/format';
 import type {
   CacheSnapshot,
+  EntryHistoryEvent,
   FxRates,
   Member,
   Organisation,
@@ -38,6 +39,13 @@ export type ManualEntryInput = {
   workItemId: string | null;
   date: string;
   durationMinutes: number;
+  description?: string | null;
+};
+
+export type EntryUpdateInput = {
+  startedAt: string;
+  endedAt: string;
+  workItemId?: string | null;
   description?: string | null;
 };
 
@@ -64,6 +72,9 @@ type AppValue = {
   startTimer: (workItemId: string | null) => Promise<void>;
   stopTimer: () => Promise<void>;
   addManualEntry: (input: ManualEntryInput) => Promise<void>;
+  updateEntry: (id: string, input: EntryUpdateInput) => Promise<void>;
+  deleteEntry: (id: string) => Promise<void>;
+  entryHistory: (id: string) => Promise<EntryHistoryEvent[]>;
   setFeedbackOptIn: (optIn: boolean) => Promise<void>;
   savePlaneConnection: (input: {
     baseUrl: string;
@@ -429,6 +440,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [ensureClient, refresh],
   );
 
+  const updateEntry = useCallback(
+    async (id: string, input: EntryUpdateInput) => {
+      await ensureClient().updateTimeEntry(id, input);
+      await refresh();
+    },
+    [ensureClient, refresh],
+  );
+
+  const deleteEntry = useCallback(
+    async (id: string) => {
+      await ensureClient().deleteTimeEntry(id);
+      await refresh();
+    },
+    [ensureClient, refresh],
+  );
+
+  const entryHistory = useCallback(
+    async (id: string) => ensureClient().timeEntryHistory(id),
+    [ensureClient],
+  );
+
   const setFeedbackOptIn = useCallback(
     async (optIn: boolean) => {
       const updated = await ensureClient().setFeedbackOptIn(optIn);
@@ -476,6 +508,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       startTimer,
       stopTimer,
       addManualEntry,
+      updateEntry,
+      deleteEntry,
+      entryHistory,
       setFeedbackOptIn,
       savePlaneConnection,
       syncPlane,
@@ -507,6 +542,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       startTimer,
       stopTimer,
       addManualEntry,
+      updateEntry,
+      deleteEntry,
+      entryHistory,
       setFeedbackOptIn,
       savePlaneConnection,
       syncPlane,

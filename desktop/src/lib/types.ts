@@ -76,6 +76,16 @@ export type TimeEntry = {
   deleted_at: string | null;
 };
 
+export type EntryHistoryEvent = {
+  id: string;
+  entry_id: string;
+  actor_member_id: string;
+  action: 'created' | 'updated' | 'deleted' | string;
+  before_state: Record<string, unknown> | null;
+  after_state: Record<string, unknown> | null;
+  created_at: string;
+};
+
 export type RunningTimer = {
   member_id: string;
   project_id: string | null;

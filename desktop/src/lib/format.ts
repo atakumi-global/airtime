@@ -71,6 +71,39 @@ export function formatTime(iso: string): string {
   });
 }
 
+export function dateInputValue(iso: string): string {
+  const date = new Date(iso);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+export type RescheduledEntry = { startedAt: string; endedAt: string };
+
+export function rescheduleEntry(
+  entry: { started_at: string; ended_at: string },
+  date: string,
+  durationMinutes: number,
+): RescheduledEntry {
+  if (!Number.isFinite(durationMinutes) || durationMinutes <= 0) {
+    throw new Error('Duration must be greater than zero.');
+  }
+  const parts = date.split('-').map(Number);
+  if (parts.length !== 3 || parts.some((part) => !Number.isFinite(part))) {
+    throw new Error('Enter a valid date.');
+  }
+  const [year, month, day] = parts as [number, number, number];
+  const original = new Date(entry.started_at);
+  if (Number.isNaN(original.getTime())) {
+    throw new Error('This entry has no valid start time.');
+  }
+  const start = new Date(original);
+  start.setFullYear(year, month - 1, day);
+  const end = new Date(start.getTime() + Math.round(durationMinutes) * 60000);
+  return { startedAt: start.toISOString(), endedAt: end.toISOString() };
+}
+
 export function startOfWeek(now = new Date()): Date {
   const date = new Date(now);
   const day = (date.getDay() + 6) % 7;

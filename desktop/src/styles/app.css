@@ -553,11 +553,54 @@ p {
 
 .entry {
   display: grid;
-  grid-template-columns: 74px 1fr auto;
+  grid-template-columns: 74px 1fr auto auto;
   gap: 12px;
   align-items: center;
   padding: 10px 12px;
   border-top: 1px solid var(--border-subtle);
+}
+
+.entry-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.history {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--layer-1);
+}
+
+.history-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 72px;
+  transform: translateX(-50%);
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 280px;
+  padding: 10px 14px;
+  border-radius: 9px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-1);
+  box-shadow: var(--shadow-overlay);
+  font-size: 13px;
+}
+
+.grow {
+  flex: 1;
 }
 
 .entry-time {

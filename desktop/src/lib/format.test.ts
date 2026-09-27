@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  dateInputValue,
   formatDuration,
   formatElapsed,
   formatMoney,
+  rescheduleEntry,
   startOfWeek,
 } from './format';
 
@@ -38,6 +40,42 @@ describe('formatMoney', () => {
 
   it('falls back when the currency is unknown', () => {
     expect(formatMoney(10, 'ZZZ')).toMatch(/ZZZ\s10/);
+  });
+});
+
+describe('dateInputValue', () => {
+  it('renders the local calendar date as YYYY-MM-DD', () => {
+    const local = new Date(2026, 8, 22, 14, 30).toISOString();
+    expect(dateInputValue(local)).toBe('2026-09-22');
+  });
+});
+
+describe('rescheduleEntry', () => {
+  const entry = {
+    started_at: new Date(2026, 8, 22, 9, 15).toISOString(),
+    ended_at: new Date(2026, 8, 22, 10, 15).toISOString(),
+  };
+
+  it('moves the entry to a new date keeping the time of day', () => {
+    const result = rescheduleEntry(entry, '2026-09-25', 60);
+    const start = new Date(result.startedAt);
+    expect(dateInputValue(result.startedAt)).toBe('2026-09-25');
+    expect(start.getHours()).toBe(9);
+    expect(start.getMinutes()).toBe(15);
+  });
+
+  it('applies a new duration from the original start', () => {
+    const result = rescheduleEntry(entry, '2026-09-22', 90);
+    const start = new Date(result.startedAt).getTime();
+    const end = new Date(result.endedAt).getTime();
+    expect((end - start) / 60000).toBe(90);
+  });
+
+  it('rejects a zero or negative duration', () => {
+    expect(() => rescheduleEntry(entry, '2026-09-22', 0)).toThrow(
+      'Duration must be greater than zero.',
+    );
+    expect(() => rescheduleEntry(entry, '2026-09-22', -5)).toThrow();
   });
 });
 

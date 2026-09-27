@@ -1,5 +1,6 @@
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
 import type {
+  EntryHistoryEvent,
   FxRates,
   Member,
   Organisation,
@@ -180,6 +181,36 @@ export class ApiClient {
       body: JSON.stringify(payload),
     });
     return body.entry;
+  }
+
+  async updateTimeEntry(
+    id: string,
+    payload: {
+      startedAt?: string;
+      endedAt?: string;
+      durationMinutes?: number;
+      workItemId?: string | null;
+      description?: string | null;
+    },
+  ): Promise<TimeEntry> {
+    const body = await this.request<{ entry: TimeEntry }>(
+      `/api/time-entries/${encodeURIComponent(id)}`,
+      { method: 'PATCH', body: JSON.stringify(payload) },
+    );
+    return body.entry;
+  }
+
+  async deleteTimeEntry(id: string): Promise<void> {
+    await this.request(`/api/time-entries/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async timeEntryHistory(id: string): Promise<EntryHistoryEvent[]> {
+    const body = await this.request<{ history: EntryHistoryEvent[] }>(
+      `/api/time-entries/${encodeURIComponent(id)}/history`,
+    );
+    return body.history;
   }
 
   async planeConnection(): Promise<PlaneConnection | null> {
