@@ -277,7 +277,7 @@ it. `stage` is pre-production and `prod` is production. Promotion is manual:
 run **Promote to stage** (`dev` -> `stage`) or **Promote to prod**
 (`stage` -> `prod`) from the Actions tab. Both are fast-forward only and fail if
 the target has diverged. CI runs on pushes and pull requests to these three
-branches. The GitHub Pages design site still builds from `design/AIRTIME-16`.
+branches. The coded design artifacts stay in `design/` as static HTML.
 
 ## Licence
 

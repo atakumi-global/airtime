@@ -7,7 +7,7 @@ where the build stands, what is verified, and what is left.
 
 - Branch model: `dev` (GitHub default) -> `stage` -> `prod`, promoted by the
   manual **Promote to stage** / **Promote to prod** actions. `design/AIRTIME-16`
-  stays the source branch for the GitHub Pages design site.
+  keeps the coded design artifacts; GitHub Pages is disabled.
 - Work sits on `feature/AIRTIME-55` and is pushed to `dev` (`6311646`). `stage`
   and `prod` still point at the design commit until promoted.
 - Working tree clean; lockfiles, docs and CI tidied this session.
@@ -49,7 +49,8 @@ Repository hygiene (this session):
   lint/tests/build.
 - Manual promotion actions: `promote-to-stage.yml` (`dev` -> `stage`) and
   `promote-to-prod.yml` (`stage` -> `prod`), both fast-forward only.
-- `dev` is the GitHub default branch; Pages still serves `design/AIRTIME-16`.
+- `dev` is the GitHub default branch; GitHub Pages was disabled and `.nojekyll`
+  removed.
 - `HANDOVER.md` is now tracked.
 
 ## Repository layout
