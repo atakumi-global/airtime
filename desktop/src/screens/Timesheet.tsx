@@ -185,7 +185,7 @@ export function Timesheet({ onBackfill }: { onBackfill: () => void }) {
     <div className="page">
       <div className="page-head">
         <div>
-          <h1>Timesheet</h1>
+          <h1>My time</h1>
           <span className="sub">{range.label}</span>
         </div>
         <div className="filters">
