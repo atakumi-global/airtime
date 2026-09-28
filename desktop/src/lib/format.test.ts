@@ -2,13 +2,16 @@ import { describe, expect, it } from 'vitest';
 import {
   dateInputValue,
   durationError,
+  formatDate,
   formatDuration,
   formatDurationClock,
   formatDurationHours,
   formatElapsed,
   formatMoney,
   parseDuration,
+  periodRange,
   rescheduleEntry,
+  shiftPeriod,
   startOfWeek,
 } from './format';
 
@@ -117,6 +120,12 @@ describe('formatMoney', () => {
   });
 });
 
+describe('formatDate', () => {
+  it('renders the day and the three-letter month', () => {
+    expect(formatDate(new Date(2026, 8, 23).toISOString())).toBe('23 Sep');
+  });
+});
+
 describe('dateInputValue', () => {
   it('renders the local calendar date as YYYY-MM-DD', () => {
     const local = new Date(2026, 8, 22, 14, 30).toISOString();
@@ -158,5 +167,52 @@ describe('startOfWeek', () => {
     const date = startOfWeek(new Date('2026-09-27T15:00:00.000Z'));
     expect(date.getDay()).toBe(1);
     expect(date.getHours()).toBe(0);
+  });
+});
+
+describe('periodRange', () => {
+  it('labels a week as its Monday to Sunday span', () => {
+    const range = periodRange('week', new Date(2026, 8, 23));
+    expect(range.label).toBe('21 – 27 Sep 2026');
+  });
+
+  it('covers Monday midnight to the next Monday', () => {
+    const range = periodRange('week', new Date(2026, 8, 23));
+    const from = new Date(range.from);
+    const to = new Date(range.to);
+    expect(from.getDate()).toBe(21);
+    expect(from.getDay()).toBe(1);
+    expect(from.getHours()).toBe(0);
+    expect(to.getDate()).toBe(28);
+    expect(to.getDay()).toBe(1);
+    expect(to.getHours()).toBe(0);
+  });
+
+  it('labels a month with its name and year', () => {
+    const range = periodRange('month', new Date(2026, 8, 15));
+    expect(range.label).toBe('September 2026');
+    const from = new Date(range.from);
+    const to = new Date(range.to);
+    expect(from.getDate()).toBe(1);
+    expect(to.getDate()).toBe(1);
+    expect(to.getMonth()).toBe(9);
+  });
+
+  it('crosses months in the week label', () => {
+    const range = periodRange('week', new Date(2026, 8, 30));
+    expect(range.label).toBe('28 Sep – 4 Oct 2026');
+  });
+});
+
+describe('shiftPeriod', () => {
+  it('moves a week by whole weeks', () => {
+    const shifted = shiftPeriod(new Date(2026, 8, 23), 'week', -1);
+    expect(shifted.getDate()).toBe(16);
+  });
+
+  it('moves a month across a year boundary', () => {
+    const shifted = shiftPeriod(new Date(2026, 0, 15), 'month', -1);
+    expect(shifted.getFullYear()).toBe(2025);
+    expect(shifted.getMonth()).toBe(11);
   });
 });

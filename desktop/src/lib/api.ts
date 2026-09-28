@@ -13,6 +13,7 @@ import type {
   RateScope,
   RunningTimer,
   TimeEntry,
+  Timesheet,
   WorkItem,
 } from './types';
 
@@ -150,6 +151,11 @@ export class ApiClient {
       `/api/time-entries?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
     );
     return body.entries;
+  }
+
+  async timesheet(from: string, to: string): Promise<Timesheet> {
+    const query = new URLSearchParams({ from, to });
+    return this.request(`/api/time-entries/summary?${query.toString()}`);
   }
 
   async timer(): Promise<RunningTimer | null> {

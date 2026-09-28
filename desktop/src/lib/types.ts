@@ -76,6 +76,31 @@ export type TimeEntry = {
   deleted_at: string | null;
 };
 
+export type CostedTimeEntry = TimeEntry & {
+  cost: number | null;
+  cost_currency: string | null;
+  cost_uncosted: boolean;
+};
+
+export type TimesheetTotals = {
+  entryCount: number;
+  totalMinutes: number;
+  billableMinutes: number;
+  cost: number;
+  currency: string;
+  currencyTotals: Record<string, number>;
+  conversions: Record<string, ConversionInfo>;
+  fxStale: boolean;
+  fxDate: string | null;
+  uncosted: { entries: number; minutes: number };
+  unconverted: { entries: number; minutes: number };
+};
+
+export type Timesheet = {
+  entries: CostedTimeEntry[];
+  totals: TimesheetTotals;
+};
+
 export type EntryHistoryEvent = {
   id: string;
   entry_id: string;

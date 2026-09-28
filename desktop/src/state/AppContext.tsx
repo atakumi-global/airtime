@@ -34,6 +34,7 @@ import type {
   RateScope,
   RunningTimer,
   TimeEntry,
+  Timesheet,
   WorkItem,
 } from '../lib/types';
 
@@ -80,6 +81,7 @@ type AppValue = {
   updateEntry: (id: string, input: EntryUpdateInput) => Promise<void>;
   deleteEntry: (id: string) => Promise<void>;
   entryHistory: (id: string) => Promise<EntryHistoryEvent[]>;
+  loadTimesheet: (from: string, to: string) => Promise<Timesheet>;
   getBudget: (projectId: string) => Promise<Budget | null>;
   setBudget: (
     projectId: string,
@@ -502,6 +504,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [ensureClient],
   );
 
+  const loadTimesheet = useCallback(
+    async (from: string, to: string) => ensureClient().timesheet(from, to),
+    [ensureClient],
+  );
+
   const setBudget = useCallback(
     async (projectId: string, payload: { amount: number; currency: string }) => {
       await ensureClient().setBudget(projectId, payload);
@@ -646,6 +653,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       updateEntry,
       deleteEntry,
       entryHistory,
+      loadTimesheet,
       getBudget,
       setBudget,
       removeBudget,
@@ -696,6 +704,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       updateEntry,
       deleteEntry,
       entryHistory,
+      loadTimesheet,
       getBudget,
       setBudget,
       removeBudget,

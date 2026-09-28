@@ -99,10 +99,8 @@ export function formatMoney(
 }
 
 export function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-GB', {
-    day: 'numeric',
-    month: 'short',
-  });
+  const date = new Date(iso);
+  return `${date.getDate()} ${MONTHS_SHORT[date.getMonth()]}`;
 }
 
 export function formatDayHeading(iso: string, today: string): string {
@@ -169,4 +167,75 @@ export function startOfWeek(now = new Date()): Date {
   date.setDate(date.getDate() - day);
   date.setHours(0, 0, 0, 0);
   return date;
+}
+
+export type PeriodMode = 'week' | 'month';
+
+export type PeriodRange = {
+  from: string;
+  to: string;
+  label: string;
+};
+
+const MONTHS_SHORT = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+];
+
+function formatPeriodLabel(start: Date, end: Date): string {
+  const sameMonth = start.getMonth() === end.getMonth();
+  const startText = sameMonth
+    ? String(start.getDate())
+    : `${start.getDate()} ${MONTHS_SHORT[start.getMonth()]}`;
+  const endText = `${end.getDate()} ${MONTHS_SHORT[end.getMonth()]} ${end.getFullYear()}`;
+  return `${startText} – ${endText}`;
+}
+
+export function periodRange(mode: PeriodMode, anchor = new Date()): PeriodRange {
+  if (mode === 'month') {
+    const start = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
+    const to = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 1);
+    return {
+      from: start.toISOString(),
+      to: to.toISOString(),
+      label: start.toLocaleDateString('en-GB', {
+        month: 'long',
+        year: 'numeric',
+      }),
+    };
+  }
+  const start = startOfWeek(anchor);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 6);
+  const to = new Date(start);
+  to.setDate(to.getDate() + 7);
+  return {
+    from: start.toISOString(),
+    to: to.toISOString(),
+    label: formatPeriodLabel(start, end),
+  };
+}
+
+export function shiftPeriod(
+  anchor: Date,
+  mode: PeriodMode,
+  delta: number,
+): Date {
+  const next = new Date(anchor);
+  if (mode === 'week') {
+    next.setDate(next.getDate() + delta * 7);
+  } else {
+    next.setMonth(next.getMonth() + delta);
+  }
+  return next;
 }
