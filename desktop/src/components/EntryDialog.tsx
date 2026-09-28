@@ -1,7 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useApp, type EntryUpdateInput } from '../state/AppContext';
-import { dateInputValue, formatDuration, rescheduleEntry } from '../lib/format';
+import {
+  dateInputValue,
+  durationError,
+  formatDuration,
+  parseDuration,
+  rescheduleEntry,
+} from '../lib/format';
 import type { EntryHistoryEvent, TimeEntry } from '../lib/types';
+import { DurationInput } from './DurationInput';
 import { Badge, Field } from './ui';
 
 const ACTION_LABEL: Record<string, string> = {
@@ -34,7 +41,7 @@ export function EntryDialog({
 }) {
   const { member, updateEntry, deleteEntry, entryHistory } = useApp();
   const [date, setDate] = useState(() => dateInputValue(entry.started_at));
-  const [duration, setDuration] = useState(String(entry.duration_minutes));
+  const [duration, setDuration] = useState(() => formatDuration(entry.duration_minutes));
   const [description, setDescription] = useState(entry.description ?? '');
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -66,9 +73,14 @@ export function EntryDialog({
 
   const submit = async () => {
     setError(null);
+    const minutes = parseDuration(duration);
+    if (minutes === null || minutes <= 0) {
+      setError(durationError(duration));
+      return;
+    }
     let times;
     try {
-      times = rescheduleEntry(entry, date, Number(duration));
+      times = rescheduleEntry(entry, date, minutes);
     } catch (validationError) {
       setError(
         validationError instanceof Error ? validationError.message : 'Invalid entry',
@@ -138,13 +150,11 @@ export function EntryDialog({
             </Field>
           </div>
           <div style={{ flex: 1 }}>
-            <Field label="Duration (minutes)">
-              <input
-                className="input"
-                type="number"
-                min={1}
+            <Field label="Duration">
+              <DurationInput
+                id="entry-duration"
                 value={duration}
-                onChange={(event) => setDuration(event.target.value)}
+                onChange={setDuration}
               />
             </Field>
           </div>
@@ -186,7 +196,7 @@ export function EntryDialog({
               type="button"
               className="btn btn-primary"
               onClick={() => void submit()}
-              disabled={saving || deleting}
+              disabled={saving || deleting || durationError(duration) !== null}
             >
               {saving ? 'Saving…' : 'Save changes'}
             </button>

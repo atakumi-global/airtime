@@ -11,6 +11,65 @@ export function formatDuration(minutes: number): string {
   return `${hours}h ${String(mins).padStart(2, '0')}m`;
 }
 
+export const MINUTES_PER_DAY = 480;
+export const MINUTES_PER_WEEK = 2400;
+
+const DURATION_UNITS: Record<string, number> = {
+  m: 1,
+  h: 60,
+  d: MINUTES_PER_DAY,
+  w: MINUTES_PER_WEEK,
+};
+
+export function parseDuration(value: string, baseMinutes = 0): number | null {
+  const trimmed = value.trim().toLowerCase();
+  if (trimmed === '') {
+    return null;
+  }
+  const additive = trimmed.startsWith('+');
+  const body = (additive ? trimmed.slice(1) : trimmed).replace(/\s+/g, '');
+  if (body === '') {
+    return null;
+  }
+  const pattern = /(\d+(?:\.\d+)?)([mhdw])/g;
+  let total = 0;
+  let consumed = '';
+  let match = pattern.exec(body);
+  while (match !== null) {
+    consumed += match[0];
+    total += Number(match[1]) * DURATION_UNITS[match[2]];
+    match = pattern.exec(body);
+  }
+  if (consumed !== body) {
+    return null;
+  }
+  const minutes = Math.round(total);
+  return additive ? Math.round(baseMinutes) + minutes : minutes;
+}
+
+export function formatDurationClock(minutes: number): string {
+  const safe = Math.max(0, Math.round(minutes));
+  const hours = Math.floor(safe / 60);
+  const mins = safe % 60;
+  return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}:00`;
+}
+
+export function formatDurationHours(minutes: number): string {
+  const hours = Math.round((Math.max(0, minutes) / 60) * 100) / 100;
+  return `${hours} ${hours === 1 ? 'hour' : 'hours'}`;
+}
+
+export function durationError(value: string): string | null {
+  const minutes = parseDuration(value);
+  if (minutes === null) {
+    return 'Not a duration. Try 1h 30m, 90m, 1d or 1w.';
+  }
+  if (minutes <= 0) {
+    return 'Duration must be greater than zero.';
+  }
+  return null;
+}
+
 export function formatElapsed(startedAt: string, now: number): string {
   const seconds = Math.max(
     0,
