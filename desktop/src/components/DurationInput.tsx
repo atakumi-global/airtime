@@ -1,3 +1,4 @@
+import type { KeyboardEvent } from 'react';
 import {
   durationError,
   formatDurationClock,
@@ -9,10 +10,12 @@ export function DurationInput({
   id,
   value,
   onChange,
+  onKeyDown,
 }: {
   id?: string;
   value: string;
   onChange: (value: string) => void;
+  onKeyDown?: (event: KeyboardEvent<HTMLInputElement>) => void;
 }) {
   const minutes = parseDuration(value);
   const error = durationError(value);
@@ -32,6 +35,7 @@ export function DurationInput({
         id={id}
         value={value}
         onChange={(event) => onChange(event.target.value)}
+        onKeyDown={onKeyDown}
         aria-invalid={showError}
         aria-describedby={describedBy}
         autoComplete="off"

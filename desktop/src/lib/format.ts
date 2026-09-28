@@ -59,6 +59,12 @@ export function formatDurationHours(minutes: number): string {
   return `${hours} ${hours === 1 ? 'hour' : 'hours'}`;
 }
 
+export const BILLABLE_MINIMUM_MINUTES = 10;
+
+export function billableMinutes(minutes: number): number {
+  return Math.max(Math.round(minutes), BILLABLE_MINIMUM_MINUTES);
+}
+
 export function durationError(value: string): string | null {
   const minutes = parseDuration(value);
   if (minutes === null) {

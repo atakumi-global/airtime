@@ -1,12 +1,21 @@
-import { useEffect, useState } from 'react';
-import { useApp, type EntryUpdateInput } from '../state/AppContext';
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import {
+  useApp,
+  type EntryUpdateInput,
+  type ManualEntryInput,
+} from '../state/AppContext';
 import { Metric, Badge } from '../components/ui';
 import { EntryDialog } from '../components/EntryDialog';
+import { DurationInput } from '../components/DurationInput';
 import { NetworkError } from '../lib/api';
 import {
+  billableMinutes,
+  dateInputValue,
+  durationError,
   formatDate,
   formatDuration,
   formatMoney,
+  parseDuration,
   periodRange,
   shiftPeriod,
   type PeriodMode,
@@ -18,10 +27,14 @@ import type {
   WorkItem,
 } from '../lib/types';
 
-function workItemLabel(
-  entry: TimeEntry,
-  workItems: WorkItem[],
-): string {
+type DraftRow = {
+  key: string;
+  date: string;
+  workItemId: string;
+  duration: string;
+};
+
+function workItemLabel(entry: TimeEntry, workItems: WorkItem[]): string {
   const item = entry.work_item_id
     ? workItems.find(
         (candidate) => candidate.plane_work_item_id === entry.work_item_id,
@@ -47,7 +60,7 @@ function cachedSummary(
     (sum, entry) => sum + entry.duration_minutes,
     0,
   );
-  const billableMinutes = inRange.reduce(
+  const billableTotal = inRange.reduce(
     (sum, entry) => sum + entry.billable_minutes,
     0,
   );
@@ -61,14 +74,14 @@ function cachedSummary(
     totals: {
       entryCount: inRange.length,
       totalMinutes,
-      billableMinutes,
+      billableMinutes: billableTotal,
       cost: 0,
       currency,
       currencyTotals: {},
       conversions: {},
       fxStale: false,
       fxDate: null,
-      uncosted: { entries: inRange.length, minutes: billableMinutes },
+      uncosted: { entries: inRange.length, minutes: billableTotal },
       unconverted: { entries: 0, minutes: 0 },
     },
   };
@@ -83,6 +96,7 @@ export function Timesheet({ onBackfill }: { onBackfill: () => void }) {
     entries,
     workItems,
     updateEntry,
+    addManualEntries,
   } = useApp();
   const [mode, setMode] = useState<PeriodMode>('week');
   const [anchor, setAnchor] = useState(() => new Date());
@@ -97,6 +111,12 @@ export function Timesheet({ onBackfill }: { onBackfill: () => void }) {
     id: string;
     previous: EntryUpdateInput;
   } | null>(null);
+  const [drafts, setDrafts] = useState<DraftRow[]>([]);
+  const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
+  const [bulkNotice, setBulkNotice] = useState<string | null>(null);
+  const [bulkError, setBulkError] = useState<string | null>(null);
+  const pendingFocusRef = useRef<string | null>(null);
 
   const range = periodRange(mode, anchor);
   const canExport = member?.role === 'manager' || member?.role === 'administrator';
@@ -105,7 +125,7 @@ export function Timesheet({ onBackfill }: { onBackfill: () => void }) {
     let cancelled = false;
     const activeRange = periodRange(mode, anchor);
     const run = async () => {
-      setStatus('loading');
+      setStatus((current) => (current === 'ready' ? current : 'loading'));
       setError(null);
       setOffline(false);
       try {
@@ -132,7 +152,9 @@ export function Timesheet({ onBackfill }: { onBackfill: () => void }) {
           return;
         }
         setError(
-          loadError instanceof Error ? loadError.message : 'Could not load the timesheet',
+          loadError instanceof Error
+            ? loadError.message
+            : 'Could not load the timesheet',
         );
         setStatus('error');
       }
@@ -148,6 +170,136 @@ export function Timesheet({ onBackfill }: { onBackfill: () => void }) {
     totals && totals.totalMinutes > 0
       ? Math.round((totals.billableMinutes / totals.totalMinutes) * 100)
       : 0;
+
+  const addDraft = (options: { date?: string; workItemId?: string } = {}) => {
+    const row: DraftRow = {
+      key: crypto.randomUUID(),
+      date: options.date ?? dateInputValue(new Date().toISOString()),
+      workItemId: options.workItemId ?? '',
+      duration: '',
+    };
+    pendingFocusRef.current = row.key;
+    setDrafts((current) => [...current, row]);
+  };
+
+  const updateDraft = (key: string, patch: Partial<DraftRow>) => {
+    setDrafts((current) =>
+      current.map((row) => (row.key === key ? { ...row, ...patch } : row)),
+    );
+  };
+
+  const removeDraft = (key: string) => {
+    setDrafts((current) => current.filter((row) => row.key !== key));
+    setRowErrors((current) => {
+      const next = { ...current };
+      delete next[key];
+      return next;
+    });
+  };
+
+  const saveDrafts = async (rowsToSave: DraftRow[], nextWorkItemId?: string) => {
+    setBulkError(null);
+    setBulkNotice(null);
+    const valid: Array<{ row: DraftRow; input: ManualEntryInput }> = [];
+    for (const row of rowsToSave) {
+      const minutes = parseDuration(row.duration);
+      if (durationError(row.duration) !== null || minutes === null || !row.date) {
+        continue;
+      }
+      valid.push({
+        row,
+        input: {
+          workItemId: row.workItemId || null,
+          date: row.date,
+          durationMinutes: minutes,
+        },
+      });
+    }
+    if (valid.length === 0) {
+      setBulkError(
+        rowsToSave.some((row) => row.duration.trim() === '')
+          ? 'Enter a duration before saving.'
+          : 'Fix the highlighted duration before saving.',
+      );
+      return;
+    }
+    setSaving(true);
+    try {
+      const result = await addManualEntries(valid.map((pair) => pair.input));
+      const failedByInput = new Map(
+        result.failed.map((failure) => [failure.input, failure.message]),
+      );
+      const savedKeys = new Set(
+        valid
+          .filter((pair) => !failedByInput.has(pair.input))
+          .map((pair) => pair.row.key),
+      );
+      setDrafts((current) => current.filter((row) => !savedKeys.has(row.key)));
+      const nextErrors: Record<string, string> = {};
+      for (const pair of valid) {
+        const message = failedByInput.get(pair.input);
+        if (message) {
+          nextErrors[pair.row.key] = message;
+        }
+      }
+      setRowErrors((current) => ({ ...current, ...nextErrors }));
+      const parts: string[] = [];
+      if (result.saved > 0) {
+        parts.push(
+          `${result.saved} ${result.saved === 1 ? 'entry' : 'entries'} saved`,
+        );
+      }
+      if (result.queued > 0) {
+        parts.push(
+          `${result.queued} ${result.queued === 1 ? 'entry' : 'entries'} queued offline`,
+        );
+      }
+      if (result.failed.length > 0) {
+        parts.push(
+          `${result.failed.length} ${result.failed.length === 1 ? 'row' : 'rows'} failed`,
+        );
+      }
+      const skipped = rowsToSave.length - valid.length;
+      if (skipped > 0) {
+        parts.push(
+          `${skipped} ${skipped === 1 ? 'row needs' : 'rows need'} a duration`,
+        );
+      }
+      if (parts.length > 0) {
+        setBulkNotice(`${parts.join(' · ')}.`);
+      }
+      if (
+        rowsToSave.length === 1 &&
+        savedKeys.has(rowsToSave[0].key)
+      ) {
+        addDraft({
+          date: rowsToSave[0].date,
+          workItemId: nextWorkItemId,
+        });
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleRowKeyDown = (
+    event: KeyboardEvent<HTMLElement>,
+    row: DraftRow,
+  ) => {
+    if (event.key !== 'Enter') {
+      return;
+    }
+    event.preventDefault();
+    if (event.ctrlKey || event.metaKey) {
+      void saveDrafts(drafts);
+      return;
+    }
+    void saveDrafts([row], event.shiftKey ? row.workItemId : undefined);
+  };
+
+  const validDrafts = drafts.filter(
+    (row) => durationError(row.duration) === null && row.date,
+  );
 
   const exportRange = async () => {
     setExporting(true);
@@ -289,7 +441,9 @@ export function Timesheet({ onBackfill }: { onBackfill: () => void }) {
           <Metric
             label="Cost"
             value={
-              offline ? '—' : formatMoney(totals.cost, totals.currency, { compact: true })
+              offline
+                ? '—'
+                : formatMoney(totals.cost, totals.currency, { compact: true })
             }
             detail={offline ? 'needs the server' : 'at internal cost levels'}
           />
@@ -299,16 +453,17 @@ export function Timesheet({ onBackfill }: { onBackfill: () => void }) {
       {status === 'ready' && summary ? (
         <section className="card">
           <div className="card-pad row-between">
-            <h2>Entries</h2>
+            <h2>Bulk entry</h2>
             <span className="muted small">
-              {summary.entries.length}{' '}
-              {summary.entries.length === 1 ? 'entry' : 'entries'}
+              Type a duration, press Tab, repeat. Enter saves the row.
             </span>
           </div>
-          {summary.entries.length === 0 ? (
+          {summary.entries.length === 0 && drafts.length === 0 ? (
             <div className="empty">
               <p>No entries in this period.</p>
-              <p className="small">Back-fill time for {range.label}.</p>
+              <p className="small">
+                Add a row below, or back-fill time for {range.label}.
+              </p>
               <button
                 type="button"
                 className="btn btn-primary"
@@ -323,7 +478,7 @@ export function Timesheet({ onBackfill }: { onBackfill: () => void }) {
                 <tr>
                   <th>Date</th>
                   <th>Work item</th>
-                  <th className="num">Duration</th>
+                  <th>Duration</th>
                   <th>Billable</th>
                   <th className="num">Cost</th>
                   <th aria-label="Actions" />
@@ -336,10 +491,13 @@ export function Timesheet({ onBackfill }: { onBackfill: () => void }) {
                     <td>
                       {workItemLabel(entry, workItems)}
                       {entry.source === 'timer' ? (
-                        <>{' '}<Badge tone="brand">Timer</Badge></>
+                        <>
+                          {' '}
+                          <Badge tone="brand">Timer</Badge>
+                        </>
                       ) : null}
                     </td>
-                    <td className="num mono">
+                    <td className="mono">
                       {formatDuration(entry.duration_minutes)}
                     </td>
                     <td>
@@ -368,9 +526,117 @@ export function Timesheet({ onBackfill }: { onBackfill: () => void }) {
                     </td>
                   </tr>
                 ))}
+                {drafts.map((row) => {
+                  const minutes = parseDuration(row.duration);
+                  const draftValid = minutes !== null && minutes > 0;
+                  return (
+                    <tr key={row.key}>
+                      <td>
+                        <input
+                          className="input mono"
+                          type="date"
+                          value={row.date}
+                          ref={(element) => {
+                            if (element && pendingFocusRef.current === row.key) {
+                              pendingFocusRef.current = null;
+                              element.focus();
+                            }
+                          }}
+                          onChange={(event) =>
+                            updateDraft(row.key, { date: event.target.value })
+                          }
+                          onKeyDown={(event) => handleRowKeyDown(event, row)}
+                          aria-label="Date"
+                        />
+                      </td>
+                      <td>
+                        <select
+                          className="select"
+                          value={row.workItemId}
+                          onChange={(event) =>
+                            updateDraft(row.key, {
+                              workItemId: event.target.value,
+                            })
+                          }
+                          onKeyDown={(event) => handleRowKeyDown(event, row)}
+                          aria-label="Work item"
+                        >
+                          <option value="">No work item</option>
+                          {workItems.map((item) => (
+                            <option key={item.id} value={item.plane_work_item_id}>
+                              {item.identifier ? `${item.identifier} · ` : ''}
+                              {item.name}
+                            </option>
+                          ))}
+                        </select>
+                        {rowErrors[row.key] ? (
+                          <span className="err">{rowErrors[row.key]}</span>
+                        ) : null}
+                      </td>
+                      <td>
+                        <DurationInput
+                          id={`draft-${row.key}`}
+                          value={row.duration}
+                          onChange={(value) =>
+                            updateDraft(row.key, { duration: value })
+                          }
+                          onKeyDown={(event) => handleRowKeyDown(event, row)}
+                        />
+                      </td>
+                      <td className="mono">
+                        {draftValid ? formatDuration(billableMinutes(minutes)) : '—'}
+                      </td>
+                      <td className="num muted">—</td>
+                      <td>
+                        <button
+                          type="button"
+                          className="btn btn-sm"
+                          onClick={() => removeDraft(row.key)}
+                        >
+                          Remove
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}
+          <div className="card-pad row-between">
+            <div className="row">
+              <button
+                type="button"
+                className="btn"
+                onClick={() => addDraft()}
+              >
+                Add row
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => void saveDrafts(drafts)}
+                disabled={saving || validDrafts.length === 0}
+              >
+                {saving
+                  ? 'Saving…'
+                  : `Save ${validDrafts.length} ${validDrafts.length === 1 ? 'entry' : 'entries'}`}
+              </button>
+            </div>
+            <span className="muted small">
+              Tab moves across Date, Work item, Duration, Billable, Cost.
+              Ctrl+Enter saves.
+            </span>
+          </div>
+          {bulkNotice ? (
+            <div className="card-pad">
+              <span className="small muted">{bulkNotice}</span>
+            </div>
+          ) : null}
+          {bulkError ? (
+            <div className="card-pad">
+              <span className="err">{bulkError}</span>
+            </div>
+          ) : null}
         </section>
       ) : null}
 

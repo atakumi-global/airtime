@@ -48,6 +48,12 @@ export type ManualEntryInput = {
   description?: string | null;
 };
 
+export type BulkEntryResult = {
+  saved: number;
+  queued: number;
+  failed: Array<{ input: ManualEntryInput; message: string }>;
+};
+
 export type EntryUpdateInput = {
   startedAt: string;
   endedAt: string;
@@ -78,6 +84,7 @@ type AppValue = {
   startTimer: (workItemId: string | null) => Promise<void>;
   stopTimer: () => Promise<void>;
   addManualEntry: (input: ManualEntryInput) => Promise<void>;
+  addManualEntries: (inputs: ManualEntryInput[]) => Promise<BulkEntryResult>;
   updateEntry: (id: string, input: EntryUpdateInput) => Promise<void>;
   deleteEntry: (id: string) => Promise<void>;
   entryHistory: (id: string) => Promise<EntryHistoryEvent[]>;
@@ -483,6 +490,49 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [ensureClient, refresh],
   );
 
+  const addManualEntries = useCallback(
+    async (inputs: ManualEntryInput[]): Promise<BulkEntryResult> => {
+      let saved = 0;
+      let queued = 0;
+      const failed: BulkEntryResult['failed'] = [];
+      const queuedEntries: QueuedEntry[] = [];
+      for (const input of inputs) {
+        try {
+          await ensureClient().createManualEntry(input);
+          saved += 1;
+        } catch (bulkError) {
+          if (bulkError instanceof NetworkError) {
+            queued += 1;
+            queuedEntries.push({
+              id: crypto.randomUUID(),
+              createdAt: new Date().toISOString(),
+              payload: { ...input },
+            });
+          } else {
+            failed.push({
+              input,
+              message:
+                bulkError instanceof Error ? bulkError.message : 'save failed',
+            });
+          }
+        }
+      }
+      if (queuedEntries.length > 0) {
+        queueRef.current = [...queueRef.current, ...queuedEntries];
+        setQueue(queueRef.current);
+        setOnline(false);
+        setNotice(
+          `${queued} ${queued === 1 ? 'entry' : 'entries'} queued and will sync when the server is reachable.`,
+        );
+      }
+      if (saved > 0) {
+        await refresh();
+      }
+      return { saved, queued, failed };
+    },
+    [ensureClient, refresh],
+  );
+
   const updateEntry = useCallback(
     async (id: string, input: EntryUpdateInput) => {
       await ensureClient().updateTimeEntry(id, input);
@@ -650,6 +700,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       startTimer,
       stopTimer,
       addManualEntry,
+      addManualEntries,
       updateEntry,
       deleteEntry,
       entryHistory,
@@ -701,6 +752,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       startTimer,
       stopTimer,
       addManualEntry,
+      addManualEntries,
       updateEntry,
       deleteEntry,
       entryHistory,

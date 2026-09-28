@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  billableMinutes,
   dateInputValue,
   durationError,
   formatDate,
@@ -60,6 +61,14 @@ describe('parseDuration', () => {
     expect(parseDuration('1h + 30m')).toBeNull();
     expect(parseDuration('')).toBeNull();
     expect(parseDuration('+')).toBeNull();
+  });
+});
+
+describe('billableMinutes', () => {
+  it('floors at the ten minute minimum', () => {
+    expect(billableMinutes(4)).toBe(10);
+    expect(billableMinutes(60)).toBe(60);
+    expect(billableMinutes(90.4)).toBe(90);
   });
 });
 
