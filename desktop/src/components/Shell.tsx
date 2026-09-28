@@ -5,6 +5,7 @@ import { TimerBar } from './TimerBar';
 
 export type View =
   | 'time'
+  | 'timesheet'
   | 'projects'
   | 'rates'
   | 'reports'
@@ -13,6 +14,7 @@ export type View =
 
 const NAV_TRACK: Array<{ id: View; label: string; icon: string }> = [
   { id: 'time', label: 'My time', icon: '◷' },
+  { id: 'timesheet', label: 'Timesheet', icon: '▥' },
 ];
 
 export function Shell({
