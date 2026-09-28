@@ -1,5 +1,5 @@
 import type { Db } from '../db/pool.js';
-import type { EntryRow } from './timeEntries.js';
+import { listEntries, type EntryRow } from './timeEntries.js';
 import {
   convertAmount,
   getLatestRates,
@@ -100,6 +100,137 @@ export function costEntry(
     currency: rate.currency,
     rateApplied: rate.hourlyAmount,
     uncosted: false,
+  };
+}
+
+export type TimesheetEntry = Omit<EntryRow, 'cost' | 'currency' | 'rate_applied'> & {
+  cost: number | null;
+  cost_currency: string | null;
+  cost_uncosted: boolean;
+};
+
+export type TimesheetTotals = {
+  entryCount: number;
+  totalMinutes: number;
+  billableMinutes: number;
+  cost: number;
+  currency: string;
+  currencyTotals: Record<string, number>;
+  conversions: Record<string, ConversionInfo>;
+  fxStale: boolean;
+  fxDate: string | null;
+  uncosted: { entries: number; minutes: number };
+  unconverted: { entries: number; minutes: number };
+};
+
+export type Timesheet = {
+  entries: TimesheetEntry[];
+  totals: TimesheetTotals;
+};
+
+export async function getTimesheet(
+  db: Db,
+  organisationId: string,
+  filter: { memberId?: string; from?: string; to?: string } = {},
+): Promise<Timesheet> {
+  const entries = await listEntries(db, organisationId, filter);
+  const index = await buildRateIndex(db, organisationId);
+
+  const clientByProject = new Map<string, string | null>();
+  const projectIds = [
+    ...new Set(
+      entries
+        .map((entry) => entry.project_id)
+        .filter((projectId): projectId is string => projectId !== null),
+    ),
+  ];
+  if (projectIds.length > 0) {
+    const projectRows = await db.query<{ id: string; client_id: string | null }>(
+      'SELECT id, client_id FROM projects WHERE organisation_id = $1 AND id = ANY($2::uuid[])',
+      [organisationId, projectIds],
+    );
+    for (const row of projectRows) {
+      clientByProject.set(row.id, row.client_id);
+    }
+  }
+
+  const organisation = await getPrimaryOrganisation(db);
+  const reporting = (organisation?.reporting_currency ?? 'USD').toUpperCase();
+  const snapshot = await getLatestRates(db);
+
+  let totalMinutes = 0;
+  let billableMinutes = 0;
+  let cost = 0;
+  let uncostedEntries = 0;
+  let uncostedMinutes = 0;
+  let unconvertedEntries = 0;
+  let unconvertedMinutes = 0;
+  let fxStale = false;
+  const currencyTotals: Record<string, number> = {};
+  const conversions: Record<string, ConversionInfo> = {};
+  const costedEntries: TimesheetEntry[] = [];
+
+  for (const entry of entries) {
+    totalMinutes += entry.duration_minutes;
+    billableMinutes += entry.billable_minutes;
+    const costed = costEntry(
+      index,
+      entry,
+      entry.project_id ? clientByProject.get(entry.project_id) ?? null : null,
+    );
+    costedEntries.push({
+      ...entry,
+      cost: costed.cost,
+      cost_currency: costed.currency,
+      cost_uncosted: costed.uncosted,
+    });
+    if (costed.cost === null || costed.currency === null) {
+      uncostedEntries += 1;
+      uncostedMinutes += entry.billable_minutes;
+      continue;
+    }
+    currencyTotals[costed.currency] = round4(
+      (currencyTotals[costed.currency] ?? 0) + costed.cost,
+    );
+    const conversion = convertAmount(
+      costed.cost,
+      costed.currency,
+      reporting,
+      snapshot,
+    );
+    if (!conversion) {
+      unconvertedEntries += 1;
+      unconvertedMinutes += entry.billable_minutes;
+      continue;
+    }
+    cost += conversion.amount;
+    if (costed.currency.toUpperCase() !== reporting) {
+      conversions[costed.currency.toUpperCase()] = {
+        rate: conversion.rate,
+        date: conversion.date,
+        stale: conversion.stale,
+      };
+      if (conversion.stale) {
+        fxStale = true;
+      }
+    }
+  }
+
+  return {
+    entries: costedEntries,
+    totals: {
+      entryCount: entries.length,
+      totalMinutes,
+      billableMinutes,
+      cost: round4(cost),
+      currency: reporting,
+      currencyTotals,
+      conversions,
+      fxStale,
+      fxDate: snapshot.date,
+      uncosted: { entries: uncostedEntries, minutes: uncostedMinutes },
+      unconverted: { entries: unconvertedEntries, minutes: unconvertedMinutes },
+    },
   };
 }
 
