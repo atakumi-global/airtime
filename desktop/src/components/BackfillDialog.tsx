@@ -68,7 +68,7 @@ export function BackfillDialog({ onClose }: { onClose: () => void }) {
           </select>
         </Field>
 
-        <div className="row">
+        <div className="row" style={{ alignItems: 'flex-start' }}>
           <div style={{ flex: 1 }}>
             <Field label="Date">
               <input

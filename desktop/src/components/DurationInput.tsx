@@ -1,12 +1,9 @@
 import {
   durationError,
-  formatDuration,
   formatDurationClock,
   formatDurationHours,
   parseDuration,
 } from '../lib/format';
-
-const QUICK_DURATIONS = ['30m', '1h', '1h 30m', '1d', '1w', '+15m'];
 
 export function DurationInput({
   id,
@@ -27,16 +24,6 @@ export function DurationInput({
     : minutes !== null && minutes > 0
       ? parseId
       : undefined;
-
-  const applyQuick = (quick: string) => {
-    if (quick.startsWith('+')) {
-      const delta = parseDuration(quick) ?? 0;
-      const base = minutes !== null && minutes > 0 ? minutes : 0;
-      onChange(formatDuration(base + delta));
-      return;
-    }
-    onChange(quick);
-  };
 
   return (
     <>
@@ -63,18 +50,6 @@ export function DurationInput({
           {error}
         </span>
       ) : null}
-      <div className="dur-chips" role="group" aria-label="Quick durations">
-        {QUICK_DURATIONS.map((quick) => (
-          <button
-            key={quick}
-            type="button"
-            className="dur-chip"
-            onClick={() => applyQuick(quick)}
-          >
-            {quick}
-          </button>
-        ))}
-      </div>
     </>
   );
 }
