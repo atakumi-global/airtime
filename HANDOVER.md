@@ -6,18 +6,21 @@ where the build stands, what is verified, and what is left.
 ## Branch and state
 
 - Branch model: `dev` (GitHub default) -> `stage` -> `prod`, promoted by the
-  manual **Promote to stage** / **Promote to prod** actions. `design/AIRTIME-16`
+  manual **Promote to stage** / **Promote to prod** actions. `prototypes/AIRTIME-16`
   keeps the coded design artifacts; GitHub Pages is disabled.
 - Work sits on `feature/AIRTIME-55` and is pushed to `dev` (`6311646`). `stage`
   and `prod` still point at the design commit until promoted.
 - Working tree clean; lockfiles, docs and CI tidied this session.
 - Local stack is up and healthy: PostgreSQL container and the dev server
   (`.\air.ps1 status` reports `/health` ok).
+- Work is tracked in Plane — workspace `atakumi`, project **Airtime**
+  (`AIRTIME`); ids in `.plane.json`. Standard docs: `AGENTS.md`,
+  `CONSTITUTION.md`, `design-system/DESIGN.md`.
 
 ## What was completed
 
 The server (v1.1–v1.8) was already built. This session completed the Windows
-desktop client to the approved coded designs in `design/AIRTIME-16/v2`, closing
+desktop client to the approved coded designs in `prototypes/AIRTIME-16/v2`, closing
 the v1.3–v1.8 client criteria.
 
 | Commit | Work |
@@ -59,7 +62,7 @@ Repository hygiene (this session):
   authorisation, audit log, Plane sync, time tracking, budgets/rates/burn,
   multi-currency, CSV export, feedback capture. 41 tests.
 - `desktop/` — Tauri v2, React, TypeScript. The Windows client.
-- `design/AIRTIME-16/v1` and `v2` — coded design artifacts (static HTML,
+- `prototypes/AIRTIME-16/v1` and `v2` — coded design artifacts (static HTML,
   light/dark, WCAG 2.2 AA target). `v2` is the approved set.
 - `air.ps1` — brings up PostgreSQL and the dev server locally.
 
@@ -136,7 +139,7 @@ AIRTIME-1, AIRTIME-3, AIRTIME-4, AIRTIME-16, AIRTIME-26.
 - **AIRTIME-28** multi-workspace sync — not started.
 - **AIRTIME-25** track expenses — not started.
 - **AIRTIME-11–15** future activity capture — backlog by design.
-- **AIRTIME-17–24** Design 1–8 — coded work exists in `design/AIRTIME-16/v2`,
+- **AIRTIME-17–24** Design 1–8 — coded work exists in `prototypes/AIRTIME-16/v2`,
   but the tickets are still Todo; they need a decision to close, not code.
 
 ## Remaining work, in order

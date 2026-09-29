@@ -16,7 +16,7 @@ and manual back-fill, a 10-minute billable minimum and a full edit history
 (work item `AIRTIME-5`, v1.3). The **Windows desktop client** lives in
 `desktop/` (work item `AIRTIME-9`, v1.7) and is described further down.
 
-The coded design system and product screens live under `design/AIRTIME-16/v2`.
+The coded design system and product screens live under `prototypes/AIRTIME-16/v2`.
 
 ## Prerequisites
 
@@ -145,7 +145,7 @@ dataset with `GET /api/feedback/export`.
 ## Desktop client (Windows)
 
 `desktop/` is the Tauri v2 + React + TypeScript client, ported from the coded
-designs in `design/AIRTIME-16/v2`. It signs in to the Airtime server, caches
+designs in `prototypes/AIRTIME-16/v2`. It signs in to the Airtime server, caches
 projects, work items, entries and the running timer to disk so the first screen
 renders before any network call, queues back-filled entries while the server is
 unreachable, and keeps the session token in Windows Credential Manager - never
