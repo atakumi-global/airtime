@@ -12,6 +12,7 @@ import {
   stopTimer,
   updateEntry,
 } from '../services/timeEntries.js';
+import { getTimesheet } from '../services/costing.js';
 
 const startSchema = z.object({
   workItemId: z.string().min(1).nullish(),
@@ -92,6 +93,20 @@ export function timeRoutes(app: FastifyInstance, deps: { db: Db }): void {
       includeDeleted: canManage(member.role) && query.includeDeleted === 'true',
     });
     return { entries };
+  });
+
+  app.get('/api/time-entries/summary', { preHandler: anyMember }, async (request) => {
+    const query = request.query as {
+      memberId?: string;
+      from?: string;
+      to?: string;
+    };
+    const member = request.member!;
+    return getTimesheet(db, member.organisation_id, {
+      memberId: canManage(member.role) ? query.memberId : member.id,
+      from: query.from,
+      to: query.to,
+    });
   });
 
   app.post('/api/time-entries', { preHandler: anyMember }, async (request, reply) => {

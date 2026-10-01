@@ -3,7 +3,7 @@ import { AppProvider, useApp } from './state/AppContext';
 import { Shell, type View } from './components/Shell';
 import { BackfillDialog } from './components/BackfillDialog';
 import { Login } from './screens/Login';
-import { MyTime } from './screens/MyTime';
+import { Timesheet } from './screens/Timesheet';
 import { Projects } from './screens/Projects';
 import { Rates } from './screens/Rates';
 import { Reports } from './screens/Reports';
@@ -34,7 +34,7 @@ function Authenticated() {
         onNavigate={setView}
         onBackfill={() => setBackfill(true)}
       >
-        {view === 'time' ? <MyTime onBackfill={() => setBackfill(true)} /> : null}
+        {view === 'time' ? <Timesheet onBackfill={() => setBackfill(true)} /> : null}
         {view === 'projects' ? <Projects /> : null}
         {view === 'rates' ? <Rates /> : null}
         {view === 'reports' ? <Reports /> : null}

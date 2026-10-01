@@ -1,4 +1,5 @@
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
+import { isTauri } from './native';
 import type {
   AuditEntry,
   Budget,
@@ -13,12 +14,16 @@ import type {
   RateScope,
   RunningTimer,
   TimeEntry,
+  Timesheet,
   WorkItem,
 } from './types';
 
-// Always use the Tauri HTTP plugin in the app: it avoids the WebView2
-// loopback restriction and CORS. Tests inject their own fetch.
-const defaultFetch = tauriFetch as unknown as typeof fetch;
+// In the Tauri app use the HTTP plugin: it avoids the WebView2 loopback
+// restriction and CORS. In a plain browser (dev preview) use the web fetch.
+// Tests inject their own fetch.
+const defaultFetch = isTauri
+  ? (tauriFetch as unknown as typeof fetch)
+  : globalThis.fetch.bind(globalThis);
 
 export class ApiError extends Error {
   readonly status: number;
@@ -150,6 +155,11 @@ export class ApiClient {
       `/api/time-entries?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
     );
     return body.entries;
+  }
+
+  async timesheet(from: string, to: string): Promise<Timesheet> {
+    const query = new URLSearchParams({ from, to });
+    return this.request(`/api/time-entries/summary?${query.toString()}`);
   }
 
   async timer(): Promise<RunningTimer | null> {

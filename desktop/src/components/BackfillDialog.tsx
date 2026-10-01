@@ -1,20 +1,22 @@
 import { useState } from 'react';
 import { useApp } from '../state/AppContext';
+import { durationError, parseDuration } from '../lib/format';
+import { DurationInput } from './DurationInput';
 import { Field } from './ui';
 
 export function BackfillDialog({ onClose }: { onClose: () => void }) {
   const { workItems, addManualEntry } = useApp();
   const [workItemId, setWorkItemId] = useState(workItems[0]?.plane_work_item_id ?? '');
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [duration, setDuration] = useState('60');
+  const [duration, setDuration] = useState('1h');
   const [description, setDescription] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   const submit = async () => {
-    const minutes = Number(duration);
-    if (!Number.isFinite(minutes) || minutes <= 0) {
-      setError('Duration must be greater than zero.');
+    const minutes = parseDuration(duration);
+    if (minutes === null || minutes <= 0) {
+      setError(durationError(duration));
       return;
     }
     setSaving(true);
@@ -66,7 +68,7 @@ export function BackfillDialog({ onClose }: { onClose: () => void }) {
           </select>
         </Field>
 
-        <div className="row">
+        <div className="row" style={{ alignItems: 'flex-start' }}>
           <div style={{ flex: 1 }}>
             <Field label="Date">
               <input
@@ -78,13 +80,11 @@ export function BackfillDialog({ onClose }: { onClose: () => void }) {
             </Field>
           </div>
           <div style={{ flex: 1 }}>
-            <Field label="Duration (minutes)">
-              <input
-                className="input"
-                type="number"
-                min={1}
+            <Field label="Duration">
+              <DurationInput
+                id="backfill-duration"
                 value={duration}
-                onChange={(event) => setDuration(event.target.value)}
+                onChange={setDuration}
               />
             </Field>
           </div>
@@ -109,7 +109,7 @@ export function BackfillDialog({ onClose }: { onClose: () => void }) {
             type="button"
             className="btn btn-primary"
             onClick={() => void submit()}
-            disabled={saving}
+            disabled={saving || durationError(duration) !== null}
           >
             {saving ? 'Saving…' : 'Save entry'}
           </button>
