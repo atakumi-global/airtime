@@ -2,12 +2,15 @@ import { useMemo, useState } from 'react';
 import { useApp } from '../state/AppContext';
 import { Badge, healthBadge } from '../components/ui';
 import { BudgetDialog } from '../components/BudgetDialog';
+import { ProjectDetail } from './ProjectDetail';
 import { formatMoney } from '../lib/format';
 import type { Project } from '../lib/types';
+import type { View } from '../components/Shell';
 
-export function Projects() {
+export function Projects({ onNavigate }: { onNavigate: (view: View) => void }) {
   const { member, projects, workItems, organisation, online } = useApp();
   const [editing, setEditing] = useState<Project | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const canManage =
     member?.role === 'manager' || member?.role === 'administrator';
 
@@ -25,6 +28,17 @@ export function Projects() {
   const flagged = projects.filter(
     (project) => project.summary && project.summary.flag !== 'ok' && project.summary.flag !== 'none',
   );
+
+  const selected = projects.find((project) => project.id === selectedId);
+  if (selected) {
+    return (
+      <ProjectDetail
+        project={selected}
+        onBack={() => setSelectedId(null)}
+        onNavigate={onNavigate}
+      />
+    );
+  }
 
   return (
     <div className="page">
@@ -108,7 +122,13 @@ export function Projects() {
                   <tr key={project.id} className={rowClass}>
                     <td>
                       <div className="stack" style={{ gap: 2 }}>
-                        <strong>{project.name}</strong>
+                        <button
+                          type="button"
+                          className="link-btn"
+                          onClick={() => setSelectedId(project.id)}
+                        >
+                          {project.name}
+                        </button>
                         <span className="muted small">
                           {open} open {open === 1 ? 'item' : 'items'} · from Plane
                         </span>

@@ -709,6 +709,183 @@ p {
   gap: 8px;
 }
 
+.strong {
+  font-weight: 600;
+}
+
+.link-btn {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--brand);
+  font-weight: 600;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.link-btn:hover {
+  text-decoration: underline;
+}
+
+/* Project detail ---------------------------------------------------------- */
+
+.fin-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.fin {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  box-shadow: var(--shadow-100);
+}
+
+.fin .k {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--txt-3);
+}
+
+.fin .v {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.fin .formula {
+  font-size: 12px;
+  color: var(--txt-3);
+}
+
+.fin-accent {
+  border-color: var(--brand);
+}
+
+.fin-pos .v {
+  color: var(--success-strong);
+}
+
+.fin-neg .v {
+  color: var(--danger-strong);
+}
+
+.targets,
+.detail-grid-even {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  align-items: start;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  gap: 12px;
+  align-items: start;
+}
+
+.target {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  box-shadow: var(--shadow-100);
+}
+
+.bar-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--layer-3);
+  overflow: hidden;
+}
+
+.bar-fill {
+  height: 100%;
+  border-radius: 999px;
+}
+
+.chart {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.chart-grid {
+  stroke: var(--border-subtle);
+  stroke-width: 1;
+}
+
+.chart-axis {
+  stroke: var(--border-strong);
+  stroke-width: 1;
+}
+
+.chart-budget {
+  stroke: var(--danger);
+  stroke-width: 1.5;
+  stroke-dasharray: 3 3;
+}
+
+.chart-price {
+  stroke: var(--success);
+  stroke-width: 1.5;
+  stroke-dasharray: 3 3;
+}
+
+.chart-bar {
+  fill: var(--brand);
+}
+
+.chart-projected {
+  fill: none;
+  stroke: var(--warning-strong);
+  stroke-width: 2;
+  stroke-dasharray: 4 3;
+}
+
+.chart-label {
+  fill: var(--txt-3);
+  font-size: 10px;
+}
+
+.legend {
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.legend i {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 5px;
+  border-radius: 2px;
+}
+
+.divider {
+  width: 100%;
+  margin: 2px 0;
+  border: 0;
+  border-top: 1px solid var(--border-subtle);
+}
+
+@media (max-width: 900px) {
+  .targets,
+  .detail-grid,
+  .detail-grid-even {
+    grid-template-columns: 1fr;
+  }
+}
+
 .sr-only {
   position: absolute;
   width: 1px;

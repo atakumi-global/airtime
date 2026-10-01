@@ -35,7 +35,7 @@ function Authenticated() {
         onBackfill={() => setBackfill(true)}
       >
         {view === 'time' ? <Timesheet onBackfill={() => setBackfill(true)} /> : null}
-        {view === 'projects' ? <Projects /> : null}
+        {view === 'projects' ? <Projects onNavigate={setView} /> : null}
         {view === 'rates' ? <Rates /> : null}
         {view === 'reports' ? <Reports /> : null}
         {view === 'admin' ? <Admin /> : null}
