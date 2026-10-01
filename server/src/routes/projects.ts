@@ -25,6 +25,9 @@ const clientSchema = z.object({ clientId: z.string().uuid().nullable() });
 const budgetSchema = z.object({
   amount: z.number().nonnegative(),
   currency: z.string().length(3),
+  price: z.number().nonnegative().nullish(),
+  profitTargetPercent: z.number().min(0).max(100).nullish(),
+  marginTargetAmount: z.number().nonnegative().nullish(),
 });
 
 export type ProjectRouteDeps = {
@@ -136,6 +139,9 @@ export function projectRoutes(app: FastifyInstance, deps: ProjectRouteDeps): voi
         projectId: id,
         amount: parsed.data.amount,
         currency: parsed.data.currency,
+        price: parsed.data.price ?? null,
+        profitTargetPercent: parsed.data.profitTargetPercent ?? null,
+        marginTargetAmount: parsed.data.marginTargetAmount ?? null,
       });
       return { budget };
     },

@@ -166,10 +166,27 @@ test('a manager changing a budget writes an audit record', async () => {
     method: 'PUT',
     url: `/api/projects/${projectId}/budget`,
     headers: auth(managerToken),
-    payload: { amount: 10000, currency: 'eur' },
+    payload: {
+      amount: 10000,
+      currency: 'eur',
+      price: 20000,
+      profitTargetPercent: 35,
+      marginTargetAmount: 4000,
+    },
   });
   assert.equal(budget.statusCode, 200);
   assert.equal(budget.json().budget.amount, '10000.00');
+  assert.equal(budget.json().budget.price, '20000.00');
+  assert.equal(budget.json().budget.profit_target_percent, '35.0000');
+  assert.equal(budget.json().budget.margin_target_amount, '4000.00');
+
+  const invalid = await app.inject({
+    method: 'PUT',
+    url: `/api/projects/${projectId}/budget`,
+    headers: auth(managerToken),
+    payload: { amount: 10000, currency: 'eur', profitTargetPercent: 101 },
+  });
+  assert.equal(invalid.statusCode, 400);
 
   const adminToken = await login(app, admin.email, admin.password);
   const audit = await app.inject({

@@ -8,6 +8,9 @@ export type BudgetRow = {
   project_id: string;
   amount: string;
   currency: string;
+  price: string | null;
+  profit_target_percent: string | null;
+  margin_target_amount: string | null;
   created_at: Date;
   updated_at: Date;
 };
@@ -30,6 +33,9 @@ export type UpsertBudgetInput = {
   projectId: string;
   amount: number;
   currency: string;
+  price?: number | null;
+  profitTargetPercent?: number | null;
+  marginTargetAmount?: number | null;
 };
 
 export async function upsertBudget(
@@ -51,24 +57,37 @@ export async function upsertBudget(
     );
     const before = existing.rows[0] ?? null;
 
+    const fields = [
+      input.amount,
+      input.currency.toUpperCase(),
+      input.price ?? null,
+      input.profitTargetPercent ?? null,
+      input.marginTargetAmount ?? null,
+    ];
     const rows = before
       ? await client.query<BudgetRow>(
           `UPDATE budgets
-              SET amount = $1, currency = $2, updated_at = now()
-            WHERE id = $3
+              SET amount = $1,
+                  currency = $2,
+                  price = $3,
+                  profit_target_percent = $4,
+                  margin_target_amount = $5,
+                  updated_at = now()
+            WHERE id = $6
             RETURNING *`,
-          [input.amount, input.currency.toUpperCase(), before.id],
+          [...fields, before.id],
         )
       : await client.query<BudgetRow>(
-          `INSERT INTO budgets (id, organisation_id, project_id, amount, currency)
-           VALUES ($1, $2, $3, $4, $5)
+          `INSERT INTO budgets
+             (id, organisation_id, project_id, amount, currency,
+              price, profit_target_percent, margin_target_amount)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
            RETURNING *`,
           [
             randomUUID(),
             input.organisationId,
             input.projectId,
-            input.amount,
-            input.currency.toUpperCase(),
+            ...fields,
           ],
         );
     const after = rows.rows[0]!;

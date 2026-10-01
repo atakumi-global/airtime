@@ -87,20 +87,25 @@ their history survives, and members can only change their own entries.
 ## Budgets and burn
 
 A time-and-materials budget is an amount and currency per project, set with
-`PUT /api/projects/:id/budget`. Time is costed at read time using the most
-specific rate available: a member rate, then a project rate, then a client rate
+`PUT /api/projects/:id/budget`, optionally with `price`, `profitTargetPercent`
+and `marginTargetAmount`. Time is costed at read time using the most specific
+rate available: a member rate, then a project rate, then a client rate
 (`clientId` on a project), otherwise the entry is uncosted and excluded from cost
 totals.
 
 `GET /api/projects/:id/summary` returns spend, remaining, percent used, uncosted
 hours, any totals in other currencies, the current burn rate per day and a
-projected overrun or underrun. The projection runs from today to the project's
-`target_date` synced from Plane; `projectionBasis` reports `project_end_date`
-when that date is used. Only when a Plane project has no target date does it fall
-back to a fixed `PROJECTION_HORIZON_DAYS` (default 30) and report
-`default_horizon`. A project is flagged `over` when spend exceeds the budget and
-`warning` when less than 10 percent remains. `GET /api/projects?withBudget=true`
-adds the same summary to every project row so lists can flag at-risk projects.
+projected overrun or underrun. It also returns the financial model: `margin`
+(available budget minus cost), `price`, `profit` (price minus cost) and both
+targets with a met flag. Profit and its target are null until a price is set.
+Expenses are not tracked yet, so cost is costed time alone. The projection runs
+from today to the project's `target_date` synced from Plane; `projectionBasis`
+reports `project_end_date` when that date is used. Only when a Plane project has
+no target date does it fall back to a fixed `PROJECTION_HORIZON_DAYS` (default
+30) and report `default_horizon`. A project is flagged `over` when spend exceeds
+the budget and `warning` when less than 10 percent remains, or either target is
+missed. `GET /api/projects?withBudget=true` adds the same summary to every
+project row so lists can flag at-risk projects.
 
 ## Multi-currency
 

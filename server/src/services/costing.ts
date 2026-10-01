@@ -251,8 +251,10 @@ export async function getProjectBudgetSummary(
   project: { id: string; client_id: string | null; target_date: Date | string | null },
   fallbackHorizonDays: number,
 ): Promise<BudgetSummary> {
-  const budgetRows = await db.query<{ amount: string; currency: string }>(
-    'SELECT amount, currency FROM budgets WHERE organisation_id = $1 AND project_id = $2',
+  const budgetRows = await db.query<BudgetFinancials>(
+    `SELECT amount, currency, price, profit_target_percent, margin_target_amount
+       FROM budgets
+      WHERE organisation_id = $1 AND project_id = $2`,
     [organisationId, project.id],
   );
   const entries = await loadEntriesForProject(db, organisationId, project.id);
@@ -276,24 +278,30 @@ export async function getProjectSummaries(
   db: Db,
   organisationId: string,
 ): Promise<{
-  budgets: Map<string, { amount: string; currency: string }>;
+  budgets: Map<string, BudgetFinancials>;
   entriesByProject: Map<string, EntryRow[]>;
   clientByProject: Map<string, string | null>;
   targetDateByProject: Map<string, Date | string | null>;
   index: RateIndex;
   fx: FxContext;
 }> {
-  const budgets = new Map<string, { amount: string; currency: string }>();
-  const budgetRows = await db.query<{
-    project_id: string;
-    amount: string;
-    currency: string;
-  }>(
-    'SELECT project_id, amount, currency FROM budgets WHERE organisation_id = $1',
+  const budgets = new Map<string, BudgetFinancials>();
+  const budgetRows = await db.query<
+    BudgetFinancials & { project_id: string }
+  >(
+    `SELECT project_id, amount, currency, price, profit_target_percent, margin_target_amount
+       FROM budgets
+      WHERE organisation_id = $1`,
     [organisationId],
   );
   for (const row of budgetRows) {
-    budgets.set(row.project_id, { amount: row.amount, currency: row.currency });
+    budgets.set(row.project_id, {
+      amount: row.amount,
+      currency: row.currency,
+      price: row.price,
+      profit_target_percent: row.profit_target_percent,
+      margin_target_amount: row.margin_target_amount,
+    });
   }
 
   const entriesByProject = new Map<string, EntryRow[]>();
@@ -398,7 +406,15 @@ export type BudgetSummary = {
   convertedBudget: number | null;
   spent: number;
   remaining: number | null;
+  margin: number | null;
   percentUsed: number | null;
+  price: number | null;
+  profit: number | null;
+  profitTargetPercent: number | null;
+  profitTargetAmount: number | null;
+  profitTargetMet: boolean | null;
+  marginTargetAmount: number | null;
+  marginTargetMet: boolean | null;
   currency: string;
   currencyTotals: Record<string, number>;
   conversions: Record<string, ConversionInfo>;
@@ -413,8 +429,16 @@ export type BudgetSummary = {
   flag: 'ok' | 'warning' | 'over' | 'none';
 };
 
+export type BudgetFinancials = {
+  amount: string;
+  currency: string;
+  price: string | null;
+  profit_target_percent: string | null;
+  margin_target_amount: string | null;
+};
+
 export function summarise(
-  budget: { amount: string; currency: string } | null,
+  budget: BudgetFinancials | null,
   entries: EntryRow[],
   index: RateIndex,
   projectClientId: string | null | undefined,
@@ -484,7 +508,15 @@ export function summarise(
       convertedBudget: null,
       spent,
       remaining: null,
+      margin: null,
       percentUsed: null,
+      price: null,
+      profit: null,
+      profitTargetPercent: null,
+      profitTargetAmount: null,
+      profitTargetMet: null,
+      marginTargetAmount: null,
+      marginTargetMet: null,
       currency: reporting,
       currencyTotals,
       conversions,
@@ -501,23 +533,24 @@ export function summarise(
   }
 
   const amount = Number(budget.amount);
-  const budgetConversion = convertAmount(
-    amount,
-    budget.currency,
-    reporting,
-    fx.snapshot,
-  );
-  if (budgetConversion && budget.currency.toUpperCase() !== reporting) {
-    conversions[budget.currency.toUpperCase()] = {
-      rate: budgetConversion.rate,
-      date: budgetConversion.date,
-      stale: budgetConversion.stale,
-    };
-    if (budgetConversion.stale) {
-      fxStale = true;
+  const convertForProject = (value: number): number | null => {
+    const conversion = convertAmount(value, budget.currency, reporting, fx.snapshot);
+    if (!conversion) {
+      return null;
     }
-  }
-  const convertedBudget = budgetConversion?.amount ?? null;
+    if (budget.currency.toUpperCase() !== reporting) {
+      conversions[budget.currency.toUpperCase()] = {
+        rate: conversion.rate,
+        date: conversion.date,
+        stale: conversion.stale,
+      };
+      if (conversion.stale) {
+        fxStale = true;
+      }
+    }
+    return conversion.amount;
+  };
+  const convertedBudget = convertForProject(amount);
 
   if (convertedBudget === null) {
     return {
@@ -525,7 +558,18 @@ export function summarise(
       convertedBudget: null,
       spent,
       remaining: null,
+      margin: null,
       percentUsed: null,
+      price: null,
+      profit: null,
+      profitTargetPercent:
+        budget.profit_target_percent === null
+          ? null
+          : Number(budget.profit_target_percent),
+      profitTargetAmount: null,
+      profitTargetMet: null,
+      marginTargetAmount: null,
+      marginTargetMet: null,
       currency: reporting,
       currencyTotals,
       conversions,
@@ -545,6 +589,29 @@ export function summarise(
   const percentUsed =
     convertedBudget > 0 ? round4((spent / convertedBudget) * 100) : null;
 
+  const profitTargetPercent =
+    budget.profit_target_percent === null
+      ? null
+      : Number(budget.profit_target_percent);
+  const convertedPrice =
+    budget.price === null ? null : convertForProject(Number(budget.price));
+  const profit = convertedPrice === null ? null : round4(convertedPrice - spent);
+  const profitTargetAmount =
+    convertedPrice === null || profitTargetPercent === null
+      ? null
+      : round4((convertedPrice * profitTargetPercent) / 100);
+  const profitTargetMet =
+    profit === null || profitTargetAmount === null
+      ? null
+      : profit >= profitTargetAmount;
+  const marginTargetAmount =
+    budget.margin_target_amount === null
+      ? null
+      : convertForProject(Number(budget.margin_target_amount));
+  const margin = remaining;
+  const marginTargetMet =
+    marginTargetAmount === null ? null : margin >= marginTargetAmount;
+
   const elapsedDays =
     earliest === null
       ? 0
@@ -558,7 +625,11 @@ export function summarise(
   let flag: BudgetSummary['flag'] = 'ok';
   if (spent > convertedBudget) {
     flag = 'over';
-  } else if (convertedBudget > 0 && remaining < convertedBudget * 0.1) {
+  } else if (
+    (convertedBudget > 0 && remaining < convertedBudget * 0.1) ||
+    marginTargetMet === false ||
+    profitTargetMet === false
+  ) {
     flag = 'warning';
   }
 
@@ -567,7 +638,15 @@ export function summarise(
     convertedBudget,
     spent,
     remaining,
+    margin,
     percentUsed,
+    price: convertedPrice,
+    profit,
+    profitTargetPercent,
+    profitTargetAmount,
+    profitTargetMet,
+    marginTargetAmount,
+    marginTargetMet,
     currency: reporting,
     currencyTotals,
     conversions,

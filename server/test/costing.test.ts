@@ -221,6 +221,96 @@ test('the projection uses the Plane project end date, falling back to the defaul
   assert.equal(undated.projectionHorizonDays, 30);
 });
 
+test('price and the two targets produce profit, margin and target health', async () => {
+  const { organisationId, admin } = await seed();
+  const projectId = await createProject(organisationId, null);
+  const token = await login(app, admin.email, admin.password);
+
+  await setRate(token, {
+    scope: 'project',
+    projectId,
+    currency: 'USD',
+    hourlyAmount: 120,
+  });
+  await addEntry(token, 60);
+
+  const saved = await app.inject({
+    method: 'PUT',
+    url: `/api/projects/${projectId}/budget`,
+    headers: auth(token),
+    payload: {
+      amount: 1000,
+      currency: 'USD',
+      price: 2000,
+      profitTargetPercent: 35,
+      marginTargetAmount: 300,
+    },
+  });
+  assert.equal(saved.statusCode, 200);
+  assert.equal(saved.json().budget.price, '2000.00');
+  assert.equal(saved.json().budget.profit_target_percent, '35.0000');
+  assert.equal(saved.json().budget.margin_target_amount, '300.00');
+
+  const result = await summary(token, projectId);
+  assert.equal(result.spent, 120);
+  assert.equal(result.price, 2000);
+  assert.equal(result.profit, 1880);
+  assert.equal(result.profitTargetPercent, 35);
+  assert.equal(result.profitTargetAmount, 700);
+  assert.equal(result.profitTargetMet, true);
+  assert.equal(result.margin, 880);
+  assert.equal(result.marginTargetAmount, 300);
+  assert.equal(result.marginTargetMet, true);
+  assert.equal(result.flag, 'ok');
+
+  const belowTarget = await app.inject({
+    method: 'PUT',
+    url: `/api/projects/${projectId}/budget`,
+    headers: auth(token),
+    payload: {
+      amount: 1000,
+      currency: 'USD',
+      price: 2000,
+      profitTargetPercent: 99,
+      marginTargetAmount: 900,
+    },
+  });
+  assert.equal(belowTarget.statusCode, 200);
+
+  const below = await summary(token, projectId);
+  assert.equal(below.profit, 1880);
+  assert.equal(below.profitTargetMet, false);
+  assert.equal(below.marginTargetMet, false);
+  assert.equal(below.flag, 'warning');
+});
+
+test('profit and its target are unknown until a price is set', async () => {
+  const { organisationId, admin } = await seed();
+  const projectId = await createProject(organisationId, null);
+  const token = await login(app, admin.email, admin.password);
+
+  await app.inject({
+    method: 'PUT',
+    url: `/api/projects/${projectId}/budget`,
+    headers: auth(token),
+    payload: {
+      amount: 1000,
+      currency: 'USD',
+      profitTargetPercent: 35,
+      marginTargetAmount: 300,
+    },
+  });
+
+  const result = await summary(token, projectId);
+  assert.equal(result.price, null);
+  assert.equal(result.profit, null);
+  assert.equal(result.profitTargetPercent, 35);
+  assert.equal(result.profitTargetAmount, null);
+  assert.equal(result.profitTargetMet, null);
+  assert.equal(result.margin, 1000);
+  assert.equal(result.marginTargetMet, true);
+});
+
 test('project list can include budget summaries for flagging', async () => {
   const { organisationId, admin } = await seed();
   const projectId = await createProject(organisationId, null);

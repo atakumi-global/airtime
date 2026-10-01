@@ -259,4 +259,18 @@ export const migrations: Migration[] = [
         ON feedback_events (organisation_id, created_at DESC);
     `,
   },
+  {
+    id: '008_budget_financials',
+    sql: `
+      ALTER TABLE budgets ADD COLUMN IF NOT EXISTS price numeric(14, 2)
+        CHECK (price IS NULL OR price >= 0);
+      ALTER TABLE budgets ADD COLUMN IF NOT EXISTS profit_target_percent numeric(7, 4)
+        CHECK (
+          profit_target_percent IS NULL
+          OR (profit_target_percent >= 0 AND profit_target_percent <= 100)
+        );
+      ALTER TABLE budgets ADD COLUMN IF NOT EXISTS margin_target_amount numeric(14, 2)
+        CHECK (margin_target_amount IS NULL OR margin_target_amount >= 0);
+    `,
+  },
 ];
