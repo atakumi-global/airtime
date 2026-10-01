@@ -73,10 +73,16 @@ export function Projects() {
                 <th scope="col">Project</th>
                 <th scope="col">Health</th>
                 <th scope="col" className="num">
+                  Price
+                </th>
+                <th scope="col" className="num">
                   Budget
                 </th>
                 <th scope="col" className="num">
                   Cost
+                </th>
+                <th scope="col" className="num">
+                  Profit
                 </th>
                 <th scope="col" className="num">
                   Margin
@@ -114,6 +120,11 @@ export function Projects() {
                       </Badge>
                     </td>
                     <td className="num">
+                      {summary?.price != null
+                        ? formatMoney(summary.price, currency, { compact: true })
+                        : '—'}
+                    </td>
+                    <td className="num">
                       {summary?.convertedBudget != null
                         ? formatMoney(summary.convertedBudget, currency, { compact: true })
                         : summary?.budget
@@ -126,8 +137,13 @@ export function Projects() {
                       {summary ? formatMoney(summary.spent, currency, { compact: true }) : '—'}
                     </td>
                     <td className="num">
-                      {summary?.remaining != null
-                        ? formatMoney(summary.remaining, currency, { compact: true })
+                      {summary?.profit != null
+                        ? formatMoney(summary.profit, currency, { compact: true })
+                        : '—'}
+                    </td>
+                    <td className="num">
+                      {summary?.margin != null
+                        ? formatMoney(summary.margin, currency, { compact: true })
                         : '—'}
                     </td>
                     <td style={{ minWidth: 130 }}>

@@ -25,7 +25,7 @@ export function Badge({
 }
 
 export function healthBadge(summary: BudgetSummary | undefined): {
-  tone: 'neutral' | 'success' | 'warning' | 'danger';
+  tone: 'neutral' | 'success' | 'warning' | 'danger' | 'brand';
   icon: string;
   label: string;
 } {
@@ -36,8 +36,21 @@ export function healthBadge(summary: BudgetSummary | undefined): {
     const percent = summary.percentUsed ? `${Math.round(summary.percentUsed)}%` : 'over';
     return { tone: 'danger', icon: '!', label: `Over budget · ${percent}` };
   }
-  if (summary.flag === 'warning') {
+  if (summary.marginTargetMet === false) {
     return { tone: 'warning', icon: '!', label: 'Below margin target' };
+  }
+  if (summary.profitTargetMet === false) {
+    return { tone: 'warning', icon: '!', label: 'Below profit target' };
+  }
+  if (summary.price === null) {
+    return { tone: 'brand', icon: 'i', label: 'Price not set' };
+  }
+  if (summary.flag === 'warning') {
+    const left =
+      summary.percentUsed != null
+        ? `${Math.max(0, Math.round(100 - summary.percentUsed))}% left`
+        : 'low';
+    return { tone: 'warning', icon: '!', label: `Low budget · ${left}` };
   }
   return { tone: 'success', icon: '✓', label: 'On track' };
 }

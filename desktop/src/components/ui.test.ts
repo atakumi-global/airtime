@@ -8,7 +8,15 @@ function summary(overrides: Partial<BudgetSummary>): BudgetSummary {
     convertedBudget: 100,
     spent: 40,
     remaining: 60,
+    margin: 60,
     percentUsed: 40,
+    price: 200,
+    profit: 160,
+    profitTargetPercent: 35,
+    profitTargetAmount: 70,
+    profitTargetMet: true,
+    marginTargetAmount: 50,
+    marginTargetMet: true,
     currency: 'USD',
     currencyTotals: { USD: 40 },
     conversions: {},
@@ -46,5 +54,36 @@ describe('healthBadge', () => {
     const badge = healthBadge(summary({ flag: 'over', percentUsed: 112 }));
     expect(badge.tone).toBe('danger');
     expect(badge.label).toBe('Over budget · 112%');
+  });
+
+  it('names the missed margin target', () => {
+    const badge = healthBadge(summary({ flag: 'warning', marginTargetMet: false }));
+    expect(badge.tone).toBe('warning');
+    expect(badge.label).toBe('Below margin target');
+  });
+
+  it('names the missed profit target', () => {
+    const badge = healthBadge(summary({ flag: 'warning', profitTargetMet: false }));
+    expect(badge.tone).toBe('warning');
+    expect(badge.label).toBe('Below profit target');
+  });
+
+  it('reports a low budget when no target is missed', () => {
+    const badge = healthBadge(summary({ flag: 'warning', percentUsed: 92 }));
+    expect(badge.label).toBe('Low budget · 8% left');
+  });
+
+  it('reports a missing price without failing health', () => {
+    const badge = healthBadge(
+      summary({ price: null, profit: null, profitTargetMet: null }),
+    );
+    expect(badge.tone).toBe('brand');
+    expect(badge.label).toBe('Price not set');
+  });
+
+  it('marks on track when both targets are met', () => {
+    const badge = healthBadge(summary({}));
+    expect(badge.tone).toBe('success');
+    expect(badge.label).toBe('On track');
   });
 });
