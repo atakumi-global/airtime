@@ -6,13 +6,23 @@ where the build stands, what is verified, and what is left.
 ## Branch and state
 
 - Branch model: `dev` (GitHub default) -> `stage` -> `prod`, promoted by the
-  manual **Promote to stage** / **Promote to prod** actions. `design/AIRTIME-16`
+  manual **Promote to stage** / **Promote to prod** actions. `prototypes/AIRTIME-16`
   keeps the coded design artifacts; GitHub Pages is disabled.
 - Work sits on a local stack: `feature/AIRTIME-31` -> `feature/AIRTIME-32` ->
   `feature/AIRTIME-33` (current), based on `dev` at `9c80586`. Nothing is
   pushed; `dev`, `stage` and `prod` are unchanged.
 - Working tree clean after this handover is committed.
 - Local stack is up and healthy: PostgreSQL container and the dev server
+  (`.\air.ps1 status` reports `/health` ok).
+- Work is tracked in Plane — workspace `atakumi`, project **Airtime**
+  (`AIRTIME`); ids in `.plane.json`. Standard docs: `AGENTS.md`,
+  `CONSTITUTION.md`, `design-system/DESIGN.md`.
+
+## What was completed
+
+The server (v1.1–v1.8) was already built. This session completed the Windows
+desktop client to the approved coded designs in `prototypes/AIRTIME-16/v2`, closing
+the v1.3–v1.8 client criteria.
   (`/health` reports ok). A browser preview also works (`npm run dev` on
   `http://localhost:5173`); the API client falls back to the web fetch outside
   Tauri and the server allows that origin.
@@ -48,6 +58,9 @@ actions, `HANDOVER.md` tracked.
 
 - `server/` — TypeScript, Fastify, PostgreSQL. Accounts, roles, server-side
   authorisation, audit log, Plane sync, time tracking, budgets/rates/burn,
+  multi-currency, CSV export, feedback capture. 41 tests.
+- `desktop/` — Tauri v2, React, TypeScript. The Windows client.
+- `prototypes/AIRTIME-16/v1` and `v2` — coded design artifacts (static HTML,
   multi-currency, CSV export, feedback capture, and the timesheet summary
   endpoint with read-time costing. 45 tests.
 - `desktop/` — Tauri v2, React, TypeScript. The Windows client. My time is the
@@ -123,6 +136,8 @@ AIRTIME-1, 3, 4, 5, 7, 8, 9, 10, 16, 17–24, 26, 31, 32, 33, 53, 55.
 - **AIRTIME-28** multi-workspace sync — not started; sized L.
 - **AIRTIME-25** track expenses — not started.
 - **AIRTIME-11–15** future activity capture — backlog by design.
+- **AIRTIME-17–24** Design 1–8 — coded work exists in `prototypes/AIRTIME-16/v2`,
+  but the tickets are still Todo; they need a decision to close, not code.
 - **AIRTIME-30, 34–52, 54, 56** — the rest of the QA-audit batch. High-priority
   missing items: 42 (Price, Profit and targets), 43 (project detail).
 - **AIRTIME-57–70** — the newer roadmap batch, untouched.
