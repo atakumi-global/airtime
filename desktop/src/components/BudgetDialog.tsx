@@ -18,6 +18,9 @@ export function BudgetDialog({
   const [currency, setCurrency] = useState(
     project.summary?.budget?.currency ?? defaultCurrency,
   );
+  const [price, setPrice] = useState('');
+  const [profitTarget, setProfitTarget] = useState('');
+  const [marginTarget, setMarginTarget] = useState('');
   const [existing, setExisting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -32,6 +35,17 @@ export function BudgetDialog({
         }
         setAmount(String(Number(budget.amount)));
         setCurrency(budget.currency);
+        setPrice(budget.price === null ? '' : String(Number(budget.price)));
+        setProfitTarget(
+          budget.profit_target_percent === null
+            ? ''
+            : String(Number(budget.profit_target_percent)),
+        );
+        setMarginTarget(
+          budget.margin_target_amount === null
+            ? ''
+            : String(Number(budget.margin_target_amount)),
+        );
         setExisting(true);
       })
       .catch(() => {
@@ -47,16 +61,49 @@ export function BudgetDialog({
     };
   }, [getBudget, project.id]);
 
+  const parseOptional = (value: string): number | null | 'invalid' => {
+    const trimmed = value.trim();
+    if (trimmed === '') {
+      return null;
+    }
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed : 'invalid';
+  };
+
   const save = async () => {
     const value = Number(amount);
     if (!Number.isFinite(value) || value < 0) {
       setError('Enter a budget amount of zero or more.');
       return;
     }
+    const priceValue = parseOptional(price);
+    if (priceValue === 'invalid' || (priceValue !== null && priceValue < 0)) {
+      setError('Enter a price to the client of zero or more, or leave it blank.');
+      return;
+    }
+    const profitValue = parseOptional(profitTarget);
+    if (
+      profitValue === 'invalid' ||
+      (profitValue !== null && (profitValue < 0 || profitValue > 100))
+    ) {
+      setError('Profit target is a percentage from 0 to 100, or blank.');
+      return;
+    }
+    const marginValue = parseOptional(marginTarget);
+    if (marginValue === 'invalid' || (marginValue !== null && marginValue < 0)) {
+      setError('Enter a margin target of zero or more, or leave it blank.');
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
-      await setBudget(project.id, { amount: value, currency });
+      await setBudget(project.id, {
+        amount: value,
+        currency,
+        price: priceValue,
+        profitTargetPercent: profitValue,
+        marginTargetAmount: marginValue,
+      });
       onClose();
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : 'Could not save budget');
@@ -103,7 +150,7 @@ export function BudgetDialog({
           <>
             <div className="row" style={{ alignItems: 'flex-start' }}>
               <div style={{ flex: 2 }}>
-                <Field label="Amount">
+                <Field label="Budget amount">
                   <input
                     className="input"
                     type="number"
@@ -132,9 +179,56 @@ export function BudgetDialog({
               </div>
             </div>
 
+            <div className="row" style={{ alignItems: 'flex-start' }}>
+              <div style={{ flex: 1 }}>
+                <Field label="Price to client">
+                  <input
+                    className="input"
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={price}
+                    onChange={(event) => setPrice(event.target.value)}
+                    placeholder="0.00"
+                  />
+                </Field>
+              </div>
+              <div style={{ flex: 1 }}>
+                <Field label="Profit target %">
+                  <input
+                    className="input"
+                    type="number"
+                    min={0}
+                    max={100}
+                    step="0.1"
+                    value={profitTarget}
+                    onChange={(event) => setProfitTarget(event.target.value)}
+                    placeholder="35"
+                  />
+                </Field>
+              </div>
+            </div>
+
+            <Field
+              label="Margin target (amount)"
+              hint="Margin target is owned by delivery and finance."
+            >
+              <input
+                className="input"
+                type="number"
+                min={0}
+                step="0.01"
+                value={marginTarget}
+                onChange={(event) => setMarginTarget(event.target.value)}
+                placeholder="0.00"
+              />
+            </Field>
+
             <p className="muted small">
-              Time is costed at the most specific rate: member, then project, then
-              client. Amounts in other currencies convert at the daily FX rate.
+              Price sets Profit (price minus cost) and the profit target; the
+              margin target is measured against cost. Time is costed at the most
+              specific rate: member, then project, then client. Amounts in other
+              currencies convert at the daily FX rate.
             </p>
 
             {error ? (

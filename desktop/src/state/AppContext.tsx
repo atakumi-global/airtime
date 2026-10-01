@@ -92,7 +92,13 @@ type AppValue = {
   getBudget: (projectId: string) => Promise<Budget | null>;
   setBudget: (
     projectId: string,
-    payload: { amount: number; currency: string },
+    payload: {
+      amount: number;
+      currency: string;
+      price?: number | null;
+      profitTargetPercent?: number | null;
+      marginTargetAmount?: number | null;
+    },
   ) => Promise<void>;
   removeBudget: (projectId: string) => Promise<void>;
   loadRates: () => Promise<Rate[]>;
@@ -560,7 +566,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
   );
 
   const setBudget = useCallback(
-    async (projectId: string, payload: { amount: number; currency: string }) => {
+    async (
+      projectId: string,
+      payload: {
+        amount: number;
+        currency: string;
+        price?: number | null;
+        profitTargetPercent?: number | null;
+        marginTargetAmount?: number | null;
+      },
+    ) => {
       await ensureClient().setBudget(projectId, payload);
       await refresh();
     },

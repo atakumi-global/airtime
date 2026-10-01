@@ -283,7 +283,13 @@ export class ApiClient {
 
   async setBudget(
     projectId: string,
-    payload: { amount: number; currency: string },
+    payload: {
+      amount: number;
+      currency: string;
+      price?: number | null;
+      profitTargetPercent?: number | null;
+      marginTargetAmount?: number | null;
+    },
   ): Promise<Budget> {
     const body = await this.request<{ budget: Budget }>(
       `/api/projects/${encodeURIComponent(projectId)}/budget`,

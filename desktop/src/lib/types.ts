@@ -20,7 +20,15 @@ export type BudgetSummary = {
   convertedBudget: number | null;
   spent: number;
   remaining: number | null;
+  margin: number | null;
   percentUsed: number | null;
+  price: number | null;
+  profit: number | null;
+  profitTargetPercent: number | null;
+  profitTargetAmount: number | null;
+  profitTargetMet: boolean | null;
+  marginTargetAmount: number | null;
+  marginTargetMet: boolean | null;
   currency: string;
   currencyTotals: Record<string, number>;
   conversions: Record<string, ConversionInfo>;
@@ -147,6 +155,9 @@ export type Budget = {
   project_id: string;
   amount: string;
   currency: string;
+  price: string | null;
+  profit_target_percent: string | null;
+  margin_target_amount: string | null;
 };
 
 export type RateScope = 'member' | 'project' | 'client';

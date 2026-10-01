@@ -127,4 +127,31 @@ describe('ApiClient', () => {
       durationMinutes: 30,
     });
   });
+
+  it('sends the budget with a price and both targets', async () => {
+    const fetchImpl = vi.fn(async () => jsonResponse({ budget: { id: 'b1' } }));
+    const client = new ApiClient({
+      baseUrl: 'http://localhost:3000',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    await client.setBudget('p1', {
+      amount: 32000,
+      currency: 'EUR',
+      price: 48000,
+      profitTargetPercent: 35,
+      marginTargetAmount: 4000,
+    });
+
+    const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe('http://localhost:3000/api/projects/p1/budget');
+    expect(init.method).toBe('PUT');
+    expect(JSON.parse(String(init.body))).toEqual({
+      amount: 32000,
+      currency: 'EUR',
+      price: 48000,
+      profitTargetPercent: 35,
+      marginTargetAmount: 4000,
+    });
+  });
 });
