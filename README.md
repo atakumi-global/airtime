@@ -98,7 +98,10 @@ hours, any totals in other currencies, the current burn rate per day and a
 projected overrun or underrun. It also returns the financial model: `margin`
 (available budget minus cost), `price`, `profit` (price minus cost) and both
 targets with a met flag. Profit and its target are null until a price is set.
-Expenses are not tracked yet, so cost is costed time alone. The projection runs
+Expenses are not tracked yet, so cost is costed time alone. The cost build-up
+comes back as `billableMinutes`, `costByScope` (cost at member, project or
+client rate level) and `weeklyCost`, the converted cost per ISO week for the
+last 12 weeks, which backs the burn chart. The projection runs
 from today to the project's `target_date` synced from Plane; `projectionBasis`
 reports `project_end_date` when that date is used. Only when a Plane project has
 no target date does it fall back to a fixed `PROJECTION_HORIZON_DAYS` (default

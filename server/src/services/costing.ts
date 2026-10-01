@@ -15,6 +15,10 @@ export type RateIndex = {
 
 export type RateLookup = { currency: string; hourlyAmount: number };
 
+export type RateScope = 'member' | 'project' | 'client';
+
+export type ResolvedRate = { scope: RateScope; rate: RateLookup };
+
 type RateRowLite = {
   scope: 'member' | 'project' | 'client';
   member_id: string | null;
@@ -29,6 +33,7 @@ export type CostedEntry = {
   currency: string | null;
   rateApplied: number | null;
   uncosted: boolean;
+  scope: RateScope | null;
 };
 
 export async function buildRateIndex(db: Db, organisationId: string): Promise<RateIndex> {
@@ -61,21 +66,21 @@ export function resolveRate(
   index: RateIndex,
   entry: Pick<EntryRow, 'member_id' | 'project_id'>,
   projectClientId: string | null | undefined,
-): RateLookup | null {
+): ResolvedRate | null {
   const memberRate = index.member.get(entry.member_id);
   if (memberRate) {
-    return memberRate;
+    return { scope: 'member', rate: memberRate };
   }
   if (entry.project_id) {
     const projectRate = index.project.get(entry.project_id);
     if (projectRate) {
-      return projectRate;
+      return { scope: 'project', rate: projectRate };
     }
   }
   if (projectClientId) {
     const clientRate = index.client.get(projectClientId);
     if (clientRate) {
-      return clientRate;
+      return { scope: 'client', rate: clientRate };
     }
   }
   return null;
@@ -90,16 +95,25 @@ export function costEntry(
   entry: EntryRow,
   projectClientId: string | null | undefined,
 ): CostedEntry {
-  const rate = resolveRate(index, entry, projectClientId);
-  if (!rate) {
-    return { cost: null, currency: null, rateApplied: null, uncosted: true };
+  const resolved = resolveRate(index, entry, projectClientId);
+  if (!resolved) {
+    return {
+      cost: null,
+      currency: null,
+      rateApplied: null,
+      uncosted: true,
+      scope: null,
+    };
   }
-  const cost = round4((rate.hourlyAmount * entry.billable_minutes) / 60);
+  const cost = round4(
+    (resolved.rate.hourlyAmount * entry.billable_minutes) / 60,
+  );
   return {
     cost,
-    currency: rate.currency,
-    rateApplied: rate.hourlyAmount,
+    currency: resolved.rate.currency,
+    rateApplied: resolved.rate.hourlyAmount,
     uncosted: false,
+    scope: resolved.scope,
   };
 }
 
@@ -415,6 +429,9 @@ export type BudgetSummary = {
   profitTargetMet: boolean | null;
   marginTargetAmount: number | null;
   marginTargetMet: boolean | null;
+  billableMinutes: number;
+  costByScope: { member: number; project: number; client: number };
+  weeklyCost: Array<{ weekStart: string; cost: number }>;
   currency: string;
   currencyTotals: Record<string, number>;
   conversions: Record<string, ConversionInfo>;
@@ -437,6 +454,37 @@ export type BudgetFinancials = {
   margin_target_amount: string | null;
 };
 
+export function isoWeekStart(date: Date): string {
+  const start = new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
+  );
+  const day = (start.getUTCDay() + 6) % 7;
+  start.setUTCDate(start.getUTCDate() - day);
+  return start.toISOString().slice(0, 10);
+}
+
+function weeklySeries(
+  weekly: Map<string, number>,
+  maxWeeks = 12,
+): Array<{ weekStart: string; cost: number }> {
+  if (weekly.size === 0) {
+    return [];
+  }
+  const starts: string[] = [];
+  const cursor = new Date(`${isoWeekStart(new Date())}T00:00:00.000Z`);
+  for (let index = 0; index < maxWeeks; index += 1) {
+    starts.unshift(cursor.toISOString().slice(0, 10));
+    cursor.setUTCDate(cursor.getUTCDate() - 7);
+  }
+  const first = [...weekly.keys()].sort()[0]!;
+  return starts
+    .filter((weekStart) => weekStart >= first)
+    .map((weekStart) => ({
+      weekStart,
+      cost: round4(weekly.get(weekStart) ?? 0),
+    }));
+}
+
 export function summarise(
   budget: BudgetFinancials | null,
   entries: EntryRow[],
@@ -447,6 +495,7 @@ export function summarise(
 ): BudgetSummary {
   const reporting = fx.reportingCurrency.toUpperCase();
   let spent = 0;
+  let billableMinutes = 0;
   let uncostedEntries = 0;
   let uncostedMinutes = 0;
   let unconvertedEntries = 0;
@@ -454,11 +503,14 @@ export function summarise(
   let fxStale = false;
   const currencyTotals: Record<string, number> = {};
   const conversions: Record<string, ConversionInfo> = {};
+  const costByScope = { member: 0, project: 0, client: 0 };
+  const weekly = new Map<string, number>();
   let earliest: number | null = null;
 
   for (const entry of entries) {
     const started = new Date(entry.started_at).getTime();
     earliest = earliest === null ? started : Math.min(earliest, started);
+    billableMinutes += entry.billable_minutes;
     const costed = costEntry(index, entry, projectClientId);
     if (costed.cost === null || costed.currency === null) {
       uncostedEntries += 1;
@@ -480,6 +532,13 @@ export function summarise(
       continue;
     }
     spent += conversion.amount;
+    if (costed.scope) {
+      costByScope[costed.scope] = round4(
+        costByScope[costed.scope] + conversion.amount,
+      );
+    }
+    const week = isoWeekStart(new Date(entry.started_at));
+    weekly.set(week, round4((weekly.get(week) ?? 0) + conversion.amount));
     if (costed.currency !== reporting) {
       conversions[costed.currency] = {
         rate: conversion.rate,
@@ -492,6 +551,7 @@ export function summarise(
     }
   }
   spent = round4(spent);
+  const weeklyCost = weeklySeries(weekly);
 
   const uncosted = {
     entries: uncostedEntries,
@@ -517,6 +577,9 @@ export function summarise(
       profitTargetMet: null,
       marginTargetAmount: null,
       marginTargetMet: null,
+      billableMinutes,
+      costByScope,
+      weeklyCost,
       currency: reporting,
       currencyTotals,
       conversions,
@@ -570,6 +633,9 @@ export function summarise(
       profitTargetMet: null,
       marginTargetAmount: null,
       marginTargetMet: null,
+      billableMinutes,
+      costByScope,
+      weeklyCost,
       currency: reporting,
       currencyTotals,
       conversions,
@@ -647,6 +713,9 @@ export function summarise(
     profitTargetMet,
     marginTargetAmount,
     marginTargetMet,
+    billableMinutes,
+    costByScope,
+    weeklyCost,
     currency: reporting,
     currencyTotals,
     conversions,

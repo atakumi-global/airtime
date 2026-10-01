@@ -141,7 +141,51 @@ test('uncosted entries are shown separately and excluded from spend', async () =
   const result = await summary(token, projectId);
   assert.equal(result.spent, 0);
   assert.deepEqual(result.uncosted, { entries: 1, hours: 1 });
+  assert.equal(result.billableMinutes, 60);
+  assert.deepEqual(result.costByScope, { member: 0, project: 0, client: 0 });
+  assert.deepEqual(result.weeklyCost, []);
   assert.equal(result.flag, 'none');
+});
+
+test('the cost build-up reports billable hours, the rate level used and the weekly series', async () => {
+  const { organisationId, admin } = await seed();
+  const clientId = randomUUID();
+  const projectId = await createProject(organisationId, clientId);
+  const token = await login(app, admin.email, admin.password);
+
+  await setRate(token, {
+    scope: 'client',
+    clientId,
+    currency: 'USD',
+    hourlyAmount: 60,
+  });
+  await addEntry(token, 60);
+
+  const clientRate = await summary(token, projectId);
+  assert.equal(clientRate.billableMinutes, 60);
+  assert.deepEqual(clientRate.costByScope, { member: 0, project: 0, client: 60 });
+  const weekly = clientRate.weeklyCost as Array<{ weekStart: string; cost: number }>;
+  assert.equal(weekly.length, 1);
+  assert.equal(weekly[0]!.cost, 60);
+  assert.equal(new Date(weekly[0]!.weekStart).getUTCDay(), 1);
+
+  await setRate(token, {
+    scope: 'project',
+    projectId,
+    currency: 'USD',
+    hourlyAmount: 100,
+  });
+  const projectRate = await summary(token, projectId);
+  assert.deepEqual(projectRate.costByScope, { member: 0, project: 100, client: 0 });
+
+  await setRate(token, {
+    scope: 'member',
+    memberId: admin.id,
+    currency: 'USD',
+    hourlyAmount: 200,
+  });
+  const memberRate = await summary(token, projectId);
+  assert.deepEqual(memberRate.costByScope, { member: 200, project: 0, client: 0 });
 });
 
 test('budget reports spend, remaining, percent and overrun flags', async () => {
