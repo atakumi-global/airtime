@@ -42,7 +42,7 @@ export function healthBadge(summary: BudgetSummary | undefined): {
   if (summary.profitTargetMet === false) {
     return { tone: 'warning', icon: '!', label: 'Below profit target' };
   }
-  if (summary.price === null) {
+  if (summary.price == null) {
     return { tone: 'brand', icon: 'i', label: 'Price not set' };
   }
   if (summary.flag === 'warning') {

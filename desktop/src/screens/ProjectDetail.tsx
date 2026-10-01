@@ -181,7 +181,7 @@ export function ProjectDetail({
     loadProjectEntries,
     exportCsv,
   } = useApp();
-  const [summary, setSummary] = useState<BudgetSummary | null>(project.summary ?? null);
+  const [summary, setSummary] = useState<BudgetSummary | null>(null);
   const [entries, setEntries] = useState<TimeEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
