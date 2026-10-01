@@ -29,6 +29,9 @@ export type BudgetSummary = {
   profitTargetMet: boolean | null;
   marginTargetAmount: number | null;
   marginTargetMet: boolean | null;
+  billableMinutes: number;
+  costByScope: { member: number; project: number; client: number };
+  weeklyCost: Array<{ weekStart: string; cost: number }>;
   currency: string;
   currencyTotals: Record<string, number>;
   conversions: Record<string, ConversionInfo>;

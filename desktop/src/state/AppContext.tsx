@@ -21,6 +21,7 @@ import { startOfWeek } from '../lib/format';
 import type {
   AuditEntry,
   Budget,
+  BudgetSummary,
   CacheSnapshot,
   EntryHistoryEvent,
   FeedbackEvent,
@@ -89,6 +90,10 @@ type AppValue = {
   deleteEntry: (id: string) => Promise<void>;
   entryHistory: (id: string) => Promise<EntryHistoryEvent[]>;
   loadTimesheet: (from: string, to: string) => Promise<Timesheet>;
+  loadProjectSummary: (
+    projectId: string,
+  ) => Promise<{ project: Project; summary: BudgetSummary }>;
+  loadProjectEntries: (projectId: string) => Promise<TimeEntry[]>;
   getBudget: (projectId: string) => Promise<Budget | null>;
   setBudget: (
     projectId: string,
@@ -565,6 +570,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [ensureClient],
   );
 
+  const loadProjectSummary = useCallback(
+    async (projectId: string) => ensureClient().projectSummary(projectId),
+    [ensureClient],
+  );
+
+  const loadProjectEntries = useCallback(
+    async (projectId: string) => ensureClient().projectEntries(projectId),
+    [ensureClient],
+  );
+
   const setBudget = useCallback(
     async (
       projectId: string,
@@ -720,6 +735,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       deleteEntry,
       entryHistory,
       loadTimesheet,
+      loadProjectSummary,
+      loadProjectEntries,
       getBudget,
       setBudget,
       removeBudget,
@@ -772,6 +789,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       deleteEntry,
       entryHistory,
       loadTimesheet,
+      loadProjectSummary,
+      loadProjectEntries,
       getBudget,
       setBudget,
       removeBudget,

@@ -128,6 +128,30 @@ describe('ApiClient', () => {
     });
   });
 
+  it('loads a project summary and its entries', async () => {
+    const fetchImpl = vi.fn(async (url: RequestInfo | URL) =>
+      String(url).includes('/summary')
+        ? jsonResponse({ project: { id: 'p1' }, summary: { spent: 10 } })
+        : jsonResponse({ entries: [{ id: 'e1' }] }),
+    );
+    const client = new ApiClient({
+      baseUrl: 'http://localhost:3000',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    const detail = await client.projectSummary('p1');
+    expect(detail.summary.spent).toBe(10);
+    expect(fetchImpl.mock.calls[0]![0]).toBe(
+      'http://localhost:3000/api/projects/p1/summary',
+    );
+
+    const entries = await client.projectEntries('p1');
+    expect(entries).toHaveLength(1);
+    expect(fetchImpl.mock.calls[1]![0]).toBe(
+      'http://localhost:3000/api/time-entries?projectId=p1',
+    );
+  });
+
   it('sends the budget with a price and both targets', async () => {
     const fetchImpl = vi.fn(async () => jsonResponse({ budget: { id: 'b1' } }));
     const client = new ApiClient({

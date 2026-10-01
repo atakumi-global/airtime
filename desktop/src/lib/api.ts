@@ -3,6 +3,7 @@ import { isTauri } from './native';
 import type {
   AuditEntry,
   Budget,
+  BudgetSummary,
   EntryHistoryEvent,
   FeedbackEvent,
   FxRates,
@@ -141,6 +142,22 @@ export class ApiClient {
       `/api/projects?withBudget=${withBudget ? 'true' : 'false'}`,
     );
     return body.projects;
+  }
+
+  async projectSummary(
+    projectId: string,
+  ): Promise<{ project: Project; summary: BudgetSummary }> {
+    return this.request(
+      `/api/projects/${encodeURIComponent(projectId)}/summary`,
+    );
+  }
+
+  async projectEntries(projectId: string): Promise<TimeEntry[]> {
+    const query = new URLSearchParams({ projectId });
+    const body = await this.request<{ entries: TimeEntry[] }>(
+      `/api/time-entries?${query.toString()}`,
+    );
+    return body.entries;
   }
 
   async workItems(): Promise<WorkItem[]> {
