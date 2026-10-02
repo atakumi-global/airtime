@@ -13,7 +13,8 @@
 param(
   [Parameter(Position = 0)]
   [ValidateSet('start', 'stop', 'restart', 'attach', 'status')]
-  [string]$Action = 'start'
+  [string]$Action = 'start',
+  [switch]$AutoPort   # fall back to scan-and-shift instead of failing on a busy port
 )
 
 $ErrorActionPreference = 'Stop'
@@ -25,10 +26,9 @@ $ComposeFile = Join-Path $Root 'docker-compose.local.yml'
 $EnvFile     = Join-Path $Root '.env'
 $EnvExample  = Join-Path $Root '.env.example'
 $Session     = 'airtime'
-$PgStart     = 5432
-$PgEnd       = 5462
-$ServerStart = 3000
-$ServerEnd   = 3030
+# Registry block 3500 (see _STANDARD/PORTS.md). Fixed by default; -AutoPort scans.
+$ServerPort  = 3500   # app (Fastify dev server)
+$PgPort      = 3502   # postgres host port
 
 # --- Helpers -----------------------------------------------------------------
 
@@ -44,6 +44,36 @@ function Get-FreePort {
     if (-not $busy) { return $port }
   }
   throw "No free port between $Start and $End"
+}
+
+function Get-PortOwner {
+  param([int]$Port)
+  $conn = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
+  if (-not $conn) { return $null }
+  $proc = Get-CimInstance Win32_Process -Filter "ProcessId=$($conn.OwningProcess)" -ErrorAction SilentlyContinue
+  [pscustomobject]@{
+    Pid         = $conn.OwningProcess
+    Name        = if ($proc) { $proc.Name }        else { 'unknown' }
+    CommandLine = if ($proc) { $proc.CommandLine } else { '' }
+  }
+}
+
+# Registry default is fixed; -AutoPort restores scan-and-shift.
+function Resolve-DevPort {
+  param([int]$Port, [string]$Name)
+  if ($AutoPort) {
+    $p = Get-FreePort -Start $Port -End ($Port + 49)
+    if ($p -ne $Port) { Write-Host "$Name preferred port $Port busy - using $p (-AutoPort)" -ForegroundColor Yellow }
+    return $p
+  }
+  $owner = Get-PortOwner $Port
+  if ($owner) {
+    Write-Host "Dev port conflict: $Name wants port $Port, but it is held by:" -ForegroundColor Red
+    Write-Host "  PID $($owner.Pid) - $($owner.Name)" -ForegroundColor Red
+    if ($owner.CommandLine) { Write-Host "  $($owner.CommandLine)" -ForegroundColor DarkGray }
+    throw "Port $Port is busy. Stop the process above, change the port via env, or run with -AutoPort."
+  }
+  return $Port
 }
 
 function Get-RandomHex {
@@ -90,13 +120,9 @@ function Ensure-Env {
   if ((Get-EnvValue 'BOOTSTRAP_ADMIN_PASSWORD') -in '', 'change-me-in-production') {
     Set-EnvValue 'BOOTSTRAP_ADMIN_PASSWORD' (Get-RandomHex 12)
   }
-  $serverPort = [int](Get-EnvValue 'PORT' '0')
-  $portBusy = (Get-NetTCPConnection -State Listen -LocalPort $serverPort -ErrorAction SilentlyContinue)
-  if ($serverPort -eq 0 -or $portBusy) {
-    $serverPort = Get-FreePort $ServerStart $ServerEnd
-    Set-EnvValue 'PORT' "$serverPort"
-  }
-  $env:PgPort = "$(Get-FreePort $PgStart $PgEnd)"
+  $serverPort = Resolve-DevPort $ServerPort 'airtime app'
+  Set-EnvValue 'PORT' "$serverPort"
+  $env:PgPort = "$(Resolve-DevPort $PgPort 'airtime postgres')"
 }
 
 function Start-Stack {
@@ -122,7 +148,7 @@ function Start-Stack {
   }
   if (-not $script:healthy) { throw 'PostgreSQL did not become healthy within 60s' }
 
-  $serverPort = Get-EnvValue 'PORT' '3000'
+  $serverPort = Get-EnvValue 'PORT' "$ServerPort"
   Set-EnvValue 'DATABASE_URL' "postgres://$(Get-EnvValue 'POSTGRES_USER' 'airtime'):$(Get-EnvValue 'POSTGRES_PASSWORD' 'airtime')@localhost:$($env:PgPort)/$(Get-EnvValue 'POSTGRES_DB' 'airtime')"
 
   if (-not (Test-Path -LiteralPath (Join-Path $Root 'node_modules'))) {
@@ -178,7 +204,7 @@ function Get-Status {
     Pop-Location
   }
 
-  $serverPort = Get-EnvValue 'PORT' '3000'
+  $serverPort = Get-EnvValue 'PORT' "$ServerPort"
   Write-Host "`n=== health ===" -ForegroundColor Cyan
   try {
     $health = Invoke-RestMethod -Uri "http://localhost:$serverPort/health" -TimeoutSec 3

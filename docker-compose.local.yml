@@ -7,7 +7,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-airtime}
       POSTGRES_DB: ${POSTGRES_DB:-airtime}
     ports:
-      - "${PG_PORT:-5432}:5432"
+      - "${PG_PORT:-3502}:5432"
     volumes:
       - airtime-local-pgdata:/var/lib/postgresql/data
     healthcheck:
