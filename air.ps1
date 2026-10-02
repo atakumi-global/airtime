@@ -62,7 +62,7 @@ function Get-PortOwner {
 function Resolve-DevPort {
   param([int]$Port, [string]$Name)
   if ($AutoPort) {
-    $p = Get-FreePort -Start $Port -End ($Port + 49)
+    $p = Get-FreePort -Start $Port -End ($Port + 19)
     if ($p -ne $Port) { Write-Host "$Name preferred port $Port busy - using $p (-AutoPort)" -ForegroundColor Yellow }
     return $p
   }
