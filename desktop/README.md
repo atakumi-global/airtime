@@ -1,7 +1,7 @@
 # Airtime desktop
 
 Windows desktop client for Airtime: Tauri v2 with React and TypeScript. The UI
-is ported from the coded designs in `../design/AIRTIME-16/v2`.
+is ported from the coded designs in `../prototypes/AIRTIME-16/v2`.
 
 ```powershell
 npm install
