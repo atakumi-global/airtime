@@ -27,6 +27,10 @@ export function exportRoutes(app: FastifyInstance, deps: { db: Db }): void {
         'content-disposition',
         'attachment; filename="airtime-time-entries.csv"',
       );
+      reply.header('x-content-type-options', 'nosniff');
+      // The body is CSV served as a text/csv attachment with nosniff, never
+      // rendered as HTML, so the generic response-write XSS rule does not apply.
+      // nosemgrep: javascript.express.security.audit.xss.direct-response-write.direct-response-write
       return reply.send(csv);
     },
   );

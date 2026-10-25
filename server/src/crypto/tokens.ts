@@ -2,6 +2,7 @@ import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
 
 const VERSION = 'v1';
 const IV_LENGTH = 12;
+const AUTH_TAG_LENGTH = 16;
 const ALGORITHM = 'aes-256-gcm';
 
 export class DecryptionError extends Error {}
@@ -17,7 +18,9 @@ export function parseEncryptionKey(hex: string): Buffer {
 
 export function encryptToken(plaintext: string, key: Buffer): string {
   const iv = randomBytes(IV_LENGTH);
-  const cipher = createCipheriv(ALGORITHM, key, iv);
+  const cipher = createCipheriv(ALGORITHM, key, iv, {
+    authTagLength: AUTH_TAG_LENGTH,
+  });
   const ciphertext = Buffer.concat([
     cipher.update(plaintext, 'utf8'),
     cipher.final(),
@@ -36,13 +39,16 @@ export function decryptToken(payload: string, key: Buffer): string {
   if (version !== VERSION || !ivPart || !tagPart || !dataPart) {
     throw new DecryptionError('unsupported encrypted token format');
   }
+  const iv = Buffer.from(ivPart, 'base64');
+  const tag = Buffer.from(tagPart, 'base64');
+  if (iv.length !== IV_LENGTH || tag.length !== AUTH_TAG_LENGTH) {
+    throw new DecryptionError('invalid encrypted token parameters');
+  }
   try {
-    const decipher = createDecipheriv(
-      ALGORITHM,
-      key,
-      Buffer.from(ivPart, 'base64'),
-    );
-    decipher.setAuthTag(Buffer.from(tagPart, 'base64'));
+    const decipher = createDecipheriv(ALGORITHM, key, iv, {
+      authTagLength: AUTH_TAG_LENGTH,
+    });
+    decipher.setAuthTag(tag);
     return Buffer.concat([
       decipher.update(Buffer.from(dataPart, 'base64')),
       decipher.final(),

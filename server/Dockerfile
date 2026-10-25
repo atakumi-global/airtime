@@ -19,4 +19,5 @@ RUN npm install --workspaces --include-workspace-root --omit=dev
 COPY --from=build /app/server/dist ./server/dist
 
 EXPOSE 3000
+USER node
 CMD ["node", "server/dist/index.js"]
