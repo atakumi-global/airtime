@@ -10,7 +10,7 @@ jobs:
     with:
       source: dev
       target: stage
-      environment: staging
+      environment: stage
     permissions:
       contents: write
       checks: read

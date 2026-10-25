@@ -235,7 +235,7 @@ Plane.
 - **Plane project:** `AIRTIME` — see `.plane.json`
 - **Branch flow:** `dev` (default) → `stage` → `prod`, promoted only by the manual
   **Promote to stage** / **Promote to prod** workflows (production approved in the
-  GitHub `production` environment).
+  GitHub `prod` environment).
 - **Data policy:** `standard` — see `atakumi-global/factory-config`
 - **Knowledge base:** https://github.com/atakumi-global/kb-atak-airtime
 

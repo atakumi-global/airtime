@@ -1,5 +1,5 @@
 # Copy to <repo>/.github/workflows/promote-to-prod.yml
-# The "production" environment must have the owner as required reviewer.
+# The "prod" environment must have the owner as required reviewer.
 name: Promote to prod
 
 on:
@@ -11,7 +11,7 @@ jobs:
     with:
       source: stage
       target: prod
-      environment: production
+      environment: prod
     permissions:
       contents: write
       checks: read
