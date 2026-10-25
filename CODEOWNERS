@@ -16,3 +16,4 @@
 /.gitleaks.toml     @martijn-atakumi
 /.semgrepignore     @martijn-atakumi
 /renovate.json      @martijn-atakumi
+/osv-scanner.toml   @martijn-atakumi

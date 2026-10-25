@@ -1,0 +1,55 @@
+# Accepted dependency findings for the factory dependency scan (osv-scanner).
+#
+# Each entry is a known finding that cannot be fixed by updating today. Every entry
+# has a reason and an expiry date; after the date the finding fails CI again and must
+# be re-reviewed. This file is governed (CODEOWNERS): only the owner may change it.
+#
+# Reviewed 2026-10-26 by martijn@atakumi.com. Source: Tauri 2.12 dependency tree
+# (`cargo tree -i <crate>` in desktop/src-tauri).
+
+# glib 0.18 unsoundness in VariantStrIter. Pulled in only by gtk 0.18 (Tauri's Linux
+# window layer: muda, tao). The desktop app ships for Windows, where gtk/glib are not
+# compiled. Fixed in glib 0.20, which needs a Tauri release on gtk-rs 0.20.
+[[IgnoredVulns]]
+id = "RUSTSEC-2024-0429"
+ignoreUntil = 2026-11-26T00:00:00Z
+reason = "Linux-only transitive dependency of Tauri 2.12 (gtk 0.18); not in the Windows build; no fix without a Tauri upgrade"
+
+[[IgnoredVulns]]
+id = "GHSA-wrw7-89jp-8q8g"
+ignoreUntil = 2026-11-26T00:00:00Z
+reason = "Alias of RUSTSEC-2024-0429 (glib 0.18); see above"
+
+# proc-macro-error 1.0.4 is unmaintained (no vulnerability). Build-time only, via
+# glib-macros 0.18 under gtk 0.18 (Linux only).
+[[IgnoredVulns]]
+id = "RUSTSEC-2024-0370"
+ignoreUntil = 2026-11-26T00:00:00Z
+reason = "Unmaintained build-time macro crate via glib-macros 0.18 (Tauri Linux layer); no fixed version"
+
+# unic-* 0.9 crates are unmaintained (no vulnerability). Pulled in by urlpattern 0.3
+# via tauri-plugin-http 2.7. No fixed version; needs an upstream move off unic.
+[[IgnoredVulns]]
+id = "RUSTSEC-2025-0081"
+ignoreUntil = 2026-11-26T00:00:00Z
+reason = "unic-char-property unmaintained; via urlpattern 0.3 / tauri-plugin-http 2.7; no fixed version"
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2025-0075"
+ignoreUntil = 2026-11-26T00:00:00Z
+reason = "unic-char-range unmaintained; via urlpattern 0.3 / tauri-plugin-http 2.7; no fixed version"
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2025-0080"
+ignoreUntil = 2026-11-26T00:00:00Z
+reason = "unic-common unmaintained; via urlpattern 0.3 / tauri-plugin-http 2.7; no fixed version"
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2025-0100"
+ignoreUntil = 2026-11-26T00:00:00Z
+reason = "unic-ucd-ident unmaintained; via urlpattern 0.3 / tauri-plugin-http 2.7; no fixed version"
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2025-0098"
+ignoreUntil = 2026-11-26T00:00:00Z
+reason = "unic-ucd-version unmaintained; via urlpattern 0.3 / tauri-plugin-http 2.7; no fixed version"
