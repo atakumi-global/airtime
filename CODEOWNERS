@@ -1,0 +1,18 @@
+# Files that govern how agents work.
+#
+# With the no-PR workflow, GitHub only enforces CODEOWNERS on pull requests (for
+# example in repositories whose dev branch is PR-based). For direct pushes to dev,
+# the factory-ci "governed-files" check enforces the same list: a push to dev that
+# changes these paths in a commit not authored by an owner fails CI and blocks
+# promotion. Keep this list and that check's list identical.
+#
+# Replace @martijn-atakumi with a team if more people approve.
+/AGENTS.md          @martijn-atakumi
+/CONSTITUTION.md    @martijn-atakumi
+/CODEOWNERS         @martijn-atakumi
+/.github/           @martijn-atakumi
+/.devcontainer/     @martijn-atakumi
+/.plane.json        @martijn-atakumi
+/.gitleaks.toml     @martijn-atakumi
+/.semgrepignore     @martijn-atakumi
+/renovate.json      @martijn-atakumi

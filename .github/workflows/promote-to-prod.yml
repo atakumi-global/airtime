@@ -1,25 +1,18 @@
+# Copy to <repo>/.github/workflows/promote-to-prod.yml
+# The "production" environment must have the owner as required reviewer.
 name: Promote to prod
 
 on:
   workflow_dispatch:
 
-permissions:
-  contents: write
-
-concurrency:
-  group: promote-prod
-  cancel-in-progress: false
-
 jobs:
   promote:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Fast-forward prod to stage
-        run: |
-          git fetch origin stage prod
-          git checkout -B prod origin/prod
-          git merge --ff-only origin/stage
-          git push origin prod
+    uses: atakumi-global/factory-ci/.github/workflows/promote.yml@v1
+    with:
+      source: stage
+      target: prod
+      environment: production
+    permissions:
+      contents: write
+      checks: read
+      statuses: read

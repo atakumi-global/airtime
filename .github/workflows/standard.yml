@@ -1,0 +1,17 @@
+# Copy to <repo>/.github/workflows/standard.yml
+# Weekly check that the repository is on the current factory standard.
+name: factory standard
+
+on:
+  schedule:
+    - cron: "17 19 * * 0"   # Monday 08:17 NZDT
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  drift:
+    uses: atakumi-global/factory-ci/.github/workflows/standard-drift.yml@v1
+    with:
+      ui_project: true

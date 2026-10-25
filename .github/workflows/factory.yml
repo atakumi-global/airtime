@@ -1,0 +1,23 @@
+# Copy to <repo>/.github/workflows/factory.yml
+# Security scans on every branch push; governed-file protection on dev.
+# Keep the project's own tests in its existing ci.yml.
+name: factory
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  security:
+    uses: atakumi-global/factory-ci/.github/workflows/security.yml@v1
+
+  governed-files:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+    uses: atakumi-global/factory-ci/.github/workflows/governed-files.yml@v1
+    with:
+      owners: |
+        martijn@atakumi.com
