@@ -1,5 +1,6 @@
-# Copy to <repo>/.github/workflows/promote-to-prod.yml
-# The "prod" environment must have the owner as required reviewer.
+# Promote stage to prod. The "prod" environment requires the owner's approval.
+# Pushes with the promote deploy key (secret PROMOTE_DEPLOY_KEY, created by
+# setup-project): the only key the factory-promotion ruleset lets update prod.
 name: Promote to prod
 
 on:
@@ -12,6 +13,8 @@ jobs:
       source: stage
       target: prod
       environment: prod
+    secrets:
+      deploy_key: ${{ secrets.PROMOTE_DEPLOY_KEY }}
     permissions:
       contents: write
       checks: read
