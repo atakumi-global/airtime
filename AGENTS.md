@@ -277,6 +277,7 @@ prototypes/AIRTIME-16/v1   coded design artifacts (superseded)
 prototypes/AIRTIME-16/v2   coded design artifacts — the APPROVED set
 design-system/DESIGN.md    binding visual contract
 air.ps1                    local stack: PostgreSQL + dev server
+stack.sh                   local stack on Linux, agent server and dev preview (factory STACK.md)
 ```
 
 ## Key commands
@@ -287,14 +288,23 @@ npm run dev          # dev server
 npm run build        # build server
 npm run typecheck
 npm run lint
-npm test             # server tests (45)
+npm test             # server tests (53)
 
 # Desktop
 cd desktop && npm run dev && npm test && npm run build
 
 # Local stack (Windows)
 .\air.ps1 start|status|attach|stop
+
+# Local stack (Linux, agent server sandbox and dev preview) — factory STACK.md
+./stack.sh start|stop|restart|status|url|logs
 ```
+
+`./stack.sh` uses the Airtime port block 3500 (app/API 3500, PostgreSQL 3502), binds to
+127.0.0.1 only and keeps development secrets in
+`${XDG_STATE_HOME:-$HOME/.local/state}/stack/airtime-<instance>.env`, outside the working
+tree. `STACK_INSTANCE` selects the compose project (`airtime-local` by default,
+`airtime-preview` for the dev preview). The server applies its own migrations on startup.
 
 ## Done-gate
 
