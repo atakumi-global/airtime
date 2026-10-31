@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { AppProvider, useApp } from './state/AppContext';
+import { ShortcutsProvider } from './state/ShortcutsContext';
 import { Shell, type View } from './components/Shell';
 import { BackfillDialog } from './components/BackfillDialog';
 import { TitleBar } from './components/TitleBar';
@@ -82,12 +83,14 @@ function Content() {
 export default function App() {
   return (
     <AppProvider>
-      <div className="frame">
-        <TitleBar />
-        <div className="frame-body">
-          <Content />
+      <ShortcutsProvider>
+        <div className="frame">
+          <TitleBar />
+          <div className="frame-body">
+            <Content />
+          </div>
         </div>
-      </div>
+      </ShortcutsProvider>
     </AppProvider>
   );
 }

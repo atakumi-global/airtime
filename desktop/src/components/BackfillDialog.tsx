@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useApp } from '../state/AppContext';
 import { durationError, parseDuration } from '../lib/format';
 import { DurationInput } from './DurationInput';
+import { ModalDialog } from './ModalDialog';
 import { Field } from './ui';
 
 export function BackfillDialog({ onClose }: { onClose: () => void }) {
@@ -14,6 +15,9 @@ export function BackfillDialog({ onClose }: { onClose: () => void }) {
   const [saving, setSaving] = useState(false);
 
   const submit = async () => {
+    if (saving) {
+      return;
+    }
     const minutes = parseDuration(duration);
     if (minutes === null || minutes <= 0) {
       setError(durationError(duration));
@@ -37,84 +41,75 @@ export function BackfillDialog({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div className="dialog-backdrop" role="presentation" onClick={onClose}>
-      <div
-        className="dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Back-fill time"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="section-title">
-          <h2>Back-fill time</h2>
-          <button type="button" className="btn btn-sm" onClick={onClose}>
-            Close
-          </button>
+    <ModalDialog
+      label="Back-fill time"
+      title="Back-fill time"
+      onClose={onClose}
+      onSubmit={() => void submit()}
+      initialFocus="select"
+    >
+      <Field label="Work item">
+        <select
+          className="select"
+          value={workItemId}
+          onChange={(event) => setWorkItemId(event.target.value)}
+        >
+          <option value="">No work item</option>
+          {workItems.map((item) => (
+            <option key={item.id} value={item.plane_work_item_id}>
+              {item.identifier ? `${item.identifier} · ` : ''}
+              {item.name}
+            </option>
+          ))}
+        </select>
+      </Field>
+
+      <div className="row" style={{ alignItems: 'flex-start' }}>
+        <div style={{ flex: 1 }}>
+          <Field label="Date">
+            <input
+              className="input"
+              type="date"
+              value={date}
+              onChange={(event) => setDate(event.target.value)}
+            />
+          </Field>
         </div>
-
-        <Field label="Work item">
-          <select
-            className="select"
-            value={workItemId}
-            onChange={(event) => setWorkItemId(event.target.value)}
-          >
-            <option value="">No work item</option>
-            {workItems.map((item) => (
-              <option key={item.id} value={item.plane_work_item_id}>
-                {item.identifier ? `${item.identifier} · ` : ''}
-                {item.name}
-              </option>
-            ))}
-          </select>
-        </Field>
-
-        <div className="row" style={{ alignItems: 'flex-start' }}>
-          <div style={{ flex: 1 }}>
-            <Field label="Date">
-              <input
-                className="input"
-                type="date"
-                value={date}
-                onChange={(event) => setDate(event.target.value)}
-              />
-            </Field>
-          </div>
-          <div style={{ flex: 1 }}>
-            <Field label="Duration">
-              <DurationInput
-                id="backfill-duration"
-                value={duration}
-                onChange={setDuration}
-              />
-            </Field>
-          </div>
-        </div>
-
-        <Field label="Note" hint="Optional. Never sent to Plane.">
-          <input
-            className="input"
-            value={description}
-            onChange={(event) => setDescription(event.target.value)}
-            placeholder="What did you work on?"
-          />
-        </Field>
-
-        {error ? <div className="banner banner-error">{error}</div> : null}
-
-        <div className="row" style={{ justifyContent: 'flex-end' }}>
-          <button type="button" className="btn" onClick={onClose}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={() => void submit()}
-            disabled={saving || durationError(duration) !== null}
-          >
-            {saving ? 'Saving…' : 'Save entry'}
-          </button>
+        <div style={{ flex: 1 }}>
+          <Field label="Duration">
+            <DurationInput
+              id="backfill-duration"
+              value={duration}
+              onChange={setDuration}
+            />
+          </Field>
         </div>
       </div>
-    </div>
+
+      <Field label="Note" hint="Optional. Never sent to Plane.">
+        <input
+          className="input"
+          value={description}
+          onChange={(event) => setDescription(event.target.value)}
+          placeholder="What did you work on?"
+        />
+      </Field>
+
+      {error ? <div className="banner banner-error">{error}</div> : null}
+
+      <div className="row" style={{ justifyContent: 'flex-end' }}>
+        <button type="button" className="btn" onClick={onClose}>
+          Cancel
+        </button>
+        <button
+          type="button"
+          className="btn btn-primary"
+          onClick={() => void submit()}
+          disabled={saving || durationError(duration) !== null}
+        >
+          {saving ? 'Saving…' : 'Save entry'}
+        </button>
+      </div>
+    </ModalDialog>
   );
 }

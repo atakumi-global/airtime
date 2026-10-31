@@ -163,4 +163,37 @@ describe('EntryDialog', () => {
 
     expect(await screen.findByText('history unavailable')).toBeTruthy();
   });
+
+  it('saves with Ctrl+Enter', async () => {
+    const { server, onSaved } = await setup();
+    server.on('PATCH /api/time-entries/entry-9', () => ({ entry: ENTRY }));
+
+    fireEvent.keyDown(field('Duration'), { key: 'Enter', ctrlKey: true });
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
+    expect(server.callsTo('PATCH /api/time-entries/entry-9')).toHaveLength(1);
+  });
+
+  it('Escape closes the delete confirmation first, then the dialog', async () => {
+    const { onClose } = await setup();
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    const confirm = screen.getByRole('alertdialog', { name: 'Delete entry' });
+
+    fireEvent.keyDown(confirm, { key: 'Escape' });
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    expect(onClose).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(field('Duration'), { key: 'Escape' });
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('Ctrl+Enter inside the delete confirmation does not save the entry', async () => {
+    const { server } = await setup();
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    const confirm = screen.getByRole('alertdialog', { name: 'Delete entry' });
+
+    fireEvent.keyDown(confirm, { key: 'Enter', ctrlKey: true });
+
+    expect(server.callsTo('PATCH /api/time-entries/entry-9')).toHaveLength(0);
+  });
 });

@@ -88,4 +88,44 @@ describe('BackfillDialog', () => {
     expect(onClose).toHaveBeenCalledTimes(2);
     expect(server.callsTo('POST /api/time-entries')).toHaveLength(0);
   });
+
+  it('saves with Ctrl+Enter from the keyboard', async () => {
+    const { server, onClose } = setup();
+    await renderReady(<BackfillDialog onClose={onClose} />);
+
+    fireEvent.keyDown(field('Duration'), { key: 'Enter', ctrlKey: true });
+
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(server.callsTo('POST /api/time-entries')).toHaveLength(1);
+  });
+
+  it('does not save on a plain Enter, closes on Escape, and focuses the first field', async () => {
+    const { server, onClose } = setup();
+    await renderReady(<BackfillDialog onClose={onClose} />);
+    expect(document.activeElement).toBe(field<HTMLSelectElement>('Work item'));
+
+    fireEvent.keyDown(field('Duration'), { key: 'Enter' });
+    expect(server.callsTo('POST /api/time-entries')).toHaveLength(0);
+
+    fireEvent.keyDown(field('Duration'), { key: 'Escape' });
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not save an invalid duration with the shortcut', async () => {
+    const { server, onClose } = setup();
+    await renderReady(<BackfillDialog onClose={onClose} />);
+    fireEvent.change(field('Duration'), { target: { value: 'abc' } });
+
+    fireEvent.keyDown(field('Duration'), { key: 'Enter', ctrlKey: true });
+
+    expect(await screen.findByText(/duration|minutes|hours/i, { selector: '.banner' })).toBeTruthy();
+    expect(server.callsTo('POST /api/time-entries')).toHaveLength(0);
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('shows the save shortcut in the dialog', async () => {
+    const { onClose } = setup();
+    await renderReady(<BackfillDialog onClose={onClose} />);
+    expect(screen.getByText('Control Enter', { selector: '.sr-only' })).toBeTruthy();
+  });
 });

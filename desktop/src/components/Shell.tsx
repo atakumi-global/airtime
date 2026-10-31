@@ -1,7 +1,13 @@
-import type { ReactNode } from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
 import { useApp } from '../state/AppContext';
+import { useShortcut, useShortcuts } from '../state/ShortcutsContext';
 import { Badge } from './ui';
 import { TimerBar } from './TimerBar';
+import { ShortcutHint, shortcutAria } from './KeyCaps';
+import { ShortcutsHelp } from './ShortcutsHelp';
+import { TrayMenuDialog } from './TrayMenuDialog';
+import { WorkItemSearch } from './WorkItemSearch';
+import { useTrayActions } from './useTrayActions';
 
 export type View =
   | 'time'
@@ -32,6 +38,21 @@ export function Shell({
     member?.role === 'manager' || member?.role === 'administrator';
   const canAdmin = member?.role === 'administrator';
 
+  const { bindings } = useShortcuts();
+  const [overlay, setOverlay] = useState<'search' | 'tray' | 'help' | null>(null);
+  const closeOverlay = useCallback(() => setOverlay(null), []);
+  const openTimesheet = useCallback(() => onNavigate('time'), [onNavigate]);
+  const openSettings = useCallback(() => onNavigate('settings'), [onNavigate]);
+  const runTrayAction = useTrayActions({
+    onBackfill,
+    onTimesheet: openTimesheet,
+    onSettings: openSettings,
+  });
+  useShortcut('backfill', onBackfill);
+  useShortcut('timesheet', openTimesheet);
+  useShortcut('search', () => setOverlay('search'));
+  useShortcut('tray', () => setOverlay('tray'));
+
   const initials = (member?.displayName ?? '?')
     .split(' ')
     .map((part) => part.charAt(0))
@@ -56,18 +77,30 @@ export function Shell({
               className="nav-item"
               aria-current={view === item.id ? 'page' : undefined}
               onClick={() => onNavigate(item.id)}
+              {...(item.id === 'time'
+                ? shortcutAria(bindings, 'timesheet', 'shortcut-timesheet-hint')
+                : {})}
             >
               <span className="icon" aria-hidden="true">
                 {item.icon}
               </span>
               {item.label}
+              {item.id === 'time' ? (
+                <ShortcutHint id="timesheet" domId="shortcut-timesheet-hint" />
+              ) : null}
             </button>
           ))}
-          <button type="button" className="nav-item" onClick={onBackfill}>
+          <button
+            type="button"
+            className="nav-item"
+            onClick={onBackfill}
+            {...shortcutAria(bindings, 'backfill', 'shortcut-backfill-hint')}
+          >
             <span className="icon" aria-hidden="true">
               +
             </span>
             Back-fill
+            <ShortcutHint id="backfill" domId="shortcut-backfill-hint" />
           </button>
           {canManage ? (
             <button
@@ -113,6 +146,17 @@ export function Shell({
         </nav>
 
         <nav className="nav-group" aria-label="Settings" style={{ marginTop: 'auto' }}>
+          <button
+            type="button"
+            className="nav-item"
+            aria-haspopup="dialog"
+            onClick={() => setOverlay('help')}
+          >
+            <span className="icon" aria-hidden="true">
+              ?
+            </span>
+            Keyboard shortcuts
+          </button>
           {canAdmin ? (
             <button
               type="button"
@@ -150,6 +194,16 @@ export function Shell({
           <button
             type="button"
             className="btn btn-sm"
+            aria-haspopup="dialog"
+            onClick={() => setOverlay('search')}
+            {...shortcutAria(bindings, 'search', 'shortcut-search-hint')}
+          >
+            Search work items
+            <ShortcutHint id="search" domId="shortcut-search-hint" />
+          </button>
+          <button
+            type="button"
+            className="btn btn-sm"
             onClick={() => void refresh()}
             disabled={refreshing}
           >
@@ -176,6 +230,14 @@ export function Shell({
       </main>
 
       <TimerBar />
+
+      {overlay === 'search' ? <WorkItemSearch onClose={closeOverlay} /> : null}
+      {overlay === 'tray' ? (
+        <TrayMenuDialog onClose={closeOverlay} onAction={runTrayAction} />
+      ) : null}
+      {overlay === 'help' ? (
+        <ShortcutsHelp onClose={closeOverlay} onOpenSettings={openSettings} />
+      ) : null}
     </div>
   );
 }

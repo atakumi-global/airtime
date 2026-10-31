@@ -155,4 +155,14 @@ describe('BudgetDialog', () => {
     expect(field('Budget amount').value).toBe('');
     expect(screen.queryByRole('button', { name: 'Remove budget' })).toBeNull();
   });
+
+  it('saves with Ctrl+Enter', async () => {
+    const { server, onClose } = await setup(null);
+    server.on(`PUT /api/projects/${PROJECT.id}/budget`, () => ({ budget: EXISTING }));
+    fireEvent.change(field('Budget amount'), { target: { value: '900' } });
+
+    fireEvent.keyDown(field('Budget amount'), { key: 'Enter', ctrlKey: true });
+
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+  });
 });
