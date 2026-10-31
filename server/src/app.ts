@@ -16,6 +16,7 @@ import { timeRoutes } from './routes/time.js';
 import { organisationRoutes } from './routes/organisation.js';
 import { fxRoutes } from './routes/fx.js';
 import { exportRoutes } from './routes/exports.js';
+import { expenseRoutes } from './routes/expenses.js';
 import { feedbackRoutes } from './routes/feedback.js';
 import { setFeedbackSalt } from './services/feedback.js';
 import { parseEncryptionKey } from './crypto/tokens.js';
@@ -52,6 +53,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     projectionHorizonDays: deps.config.projectionHorizonDays,
   });
   rateRoutes(app, deps);
+  expenseRoutes(app, deps);
   auditRoutes(app, deps);
   timeRoutes(app, deps);
   organisationRoutes(app, deps);
