@@ -6,6 +6,9 @@ import {
 } from '../state/AppContext';
 import { Metric, Badge } from '../components/ui';
 import { EntryDialog } from '../components/EntryDialog';
+import { KeyCaps } from '../components/KeyCaps';
+import { matchesBinding } from '../lib/shortcuts';
+import { useShortcuts } from '../state/ShortcutsContext';
 import { DurationInput } from '../components/DurationInput';
 import { NetworkError } from '../lib/api';
 import { timesheetMetrics } from '../lib/timesheet';
@@ -89,6 +92,7 @@ function cachedSummary(
 }
 
 export function Timesheet({ onBackfill }: { onBackfill: () => void }) {
+  const { bindings } = useShortcuts();
   const {
     loadTimesheet,
     exportCsv,
@@ -284,14 +288,15 @@ export function Timesheet({ onBackfill }: { onBackfill: () => void }) {
     event: KeyboardEvent<HTMLElement>,
     row: DraftRow,
   ) => {
-    if (event.key !== 'Enter') {
-      return;
-    }
-    event.preventDefault();
-    if (event.ctrlKey || event.metaKey) {
+    if (matchesBinding(event.nativeEvent, bindings.save)) {
+      event.preventDefault();
       void saveDrafts(drafts);
       return;
     }
+    if (event.key !== 'Enter' || event.ctrlKey || event.altKey || event.metaKey) {
+      return;
+    }
+    event.preventDefault();
     void saveDrafts([row], event.shiftKey ? row.workItemId : undefined);
   };
 
@@ -625,8 +630,8 @@ export function Timesheet({ onBackfill }: { onBackfill: () => void }) {
               </button>
             </div>
             <span className="muted small">
-              Tab moves across Date, Work item, Duration, Billable, Cost.
-              Ctrl+Enter saves.
+              Tab moves across Date, Work item, Duration, Billable, Cost.{' '}
+              <KeyCaps binding={bindings.save} /> saves all.
             </span>
           </div>
           {bulkNotice ? (

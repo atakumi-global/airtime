@@ -2,6 +2,7 @@ import { render, waitFor } from '@testing-library/react';
 import { expect } from 'vitest';
 import { useEffect, useState, type ReactNode } from 'react';
 import { AppProvider, useApp } from '../state/AppContext';
+import { ShortcutsProvider } from '../state/ShortcutsContext';
 import { SESSION_KEY } from '../lib/native';
 import type { CacheSnapshot } from '../lib/types';
 import {
@@ -111,7 +112,7 @@ export async function renderReady(
     if (!open && status === 'ready' && !refreshing && fx) {
       setOpen(true);
     }
-    return open ? <>{ui}</> : null;
+    return open ? <ShortcutsProvider>{ui}</ShortcutsProvider> : null;
   }
   const mounted = mountApp(<Gate />);
   await waitFor(() => {

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useApp } from '../state/AppContext';
 import { formatTimerElapsed } from '../lib/format';
+import { useShortcut, useShortcuts } from '../state/ShortcutsContext';
+import { shortcutAria, ShortcutHint } from './KeyCaps';
 import { Badge } from './ui';
 
 export function TimerBar() {
@@ -39,21 +41,19 @@ export function TimerBar() {
           ? 'Timer running'
           : 'No timer running');
 
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.ctrlKey && event.altKey && event.key.toLowerCase() === 't') {
-        event.preventDefault();
-        if (timer) {
-          void stopTimer();
-        } else {
-          const first = workItems[0];
-          void startTimer(first?.plane_work_item_id ?? null);
-        }
+  const { bindings } = useShortcuts();
+  useShortcut(
+    'timer',
+    () => {
+      if (timer) {
+        void stopTimer();
+      } else {
+        const first = workItems[0];
+        void startTimer(first?.plane_work_item_id ?? null);
       }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [startTimer, stopTimer, timer, workItems]);
+    },
+    { whenModalOpen: true },
+  );
 
   const stateWord =
     timerState === 'paused' ? 'Paused' : timerState === 'running' ? 'Running' : 'Stopped';
@@ -91,9 +91,7 @@ export function TimerBar() {
 
       <span className="spacer" />
       <span className="hint">
-        <kbd>Ctrl</kbd>
-        <kbd>Alt</kbd>
-        <kbd>T</kbd>
+        <ShortcutHint id="timer" domId="shortcut-timer-hint" />
         {timer ? 'stop' : 'start'}
       </span>
       {timerState === 'running' ? (
@@ -124,6 +122,7 @@ export function TimerBar() {
           className="btn btn-danger"
           onClick={() => void stopTimer()}
           disabled={timerPending}
+          {...shortcutAria(bindings, 'timer', 'shortcut-timer-hint')}
         >
           Stop &amp; save
         </button>
@@ -133,6 +132,7 @@ export function TimerBar() {
           className="btn btn-primary"
           onClick={() => void startTimer(workItems[0]?.plane_work_item_id ?? null)}
           disabled={timerPending || !member}
+          {...shortcutAria(bindings, 'timer', 'shortcut-timer-hint')}
           title={
             workItems.length === 0
               ? 'No work items yet. Connect Plane in Settings.'

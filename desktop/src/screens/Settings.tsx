@@ -1,7 +1,181 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { useApp } from '../state/AppContext';
 import { Badge, Field } from '../components/ui';
+import { KeyCaps } from '../components/KeyCaps';
 import { currencyOptions } from '../lib/currency';
+import {
+  SHORTCUTS,
+  announce,
+  bindingFromEvent,
+  defaultBindings,
+  type ShortcutId,
+} from '../lib/shortcuts';
+import { useShortcuts } from '../state/ShortcutsContext';
+
+function ShortcutsSection() {
+  const { bindings, setBinding, resetBinding, resetAll, isCustom, setCapturing } =
+    useShortcuts();
+  const [editing, setEditing] = useState<ShortcutId | null>(null);
+  const [problem, setProblem] = useState<string | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
+  const captureRef = useRef<HTMLButtonElement>(null);
+  const tableRef = useRef<HTMLTableElement>(null);
+  const returnTo = useRef<ShortcutId | null>(null);
+  const anyCustom = SHORTCUTS.some((def) => isCustom(def.id));
+
+  useEffect(() => {
+    setCapturing(editing !== null);
+    return () => setCapturing(false);
+  }, [editing, setCapturing]);
+
+  useEffect(() => {
+    if (editing) {
+      captureRef.current?.focus();
+    } else if (returnTo.current) {
+      // The capture button is gone; put focus back on the row's Change button.
+      tableRef.current
+        ?.querySelector<HTMLElement>(`tr[data-shortcut="${returnTo.current}"] button`)
+        ?.focus();
+      returnTo.current = null;
+    }
+  }, [editing]);
+
+  const startEditing = (id: ShortcutId) => {
+    setProblem(null);
+    setStatus(null);
+    setEditing(id);
+  };
+
+  const onCapture = (event: KeyboardEvent<HTMLButtonElement>, id: ShortcutId) => {
+    if (event.key === 'Tab') {
+      setEditing(null);
+      return;
+    }
+    returnTo.current = id;
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.key === 'Escape') {
+      setEditing(null);
+      setProblem(null);
+      return;
+    }
+    const binding = bindingFromEvent(event.nativeEvent);
+    if (!binding) {
+      return;
+    }
+    const refusal = setBinding(id, binding);
+    if (refusal) {
+      setProblem(refusal);
+      return;
+    }
+    setProblem(null);
+    setEditing(null);
+    const def = SHORTCUTS.find((entry) => entry.id === id)!;
+    setStatus(`Saved. ${announce(def, binding)}.`);
+  };
+
+  const reset = (id: ShortcutId) => {
+    resetBinding(id);
+    const def = SHORTCUTS.find((entry) => entry.id === id)!;
+    setStatus(`Reset. ${announce(def, defaultBindings()[id])}.`);
+  };
+
+  return (
+    <section className="card card-pad stack" aria-labelledby="shortcuts-heading">
+      <div className="section-title">
+        <h2 id="shortcuts-heading">Keyboard shortcuts</h2>
+        <button
+          type="button"
+          className="btn btn-sm"
+          onClick={() => {
+            resetAll();
+            setEditing(null);
+            setProblem(null);
+            setStatus('All shortcuts reset to their defaults.');
+          }}
+          disabled={!anyCustom}
+        >
+          Reset all
+        </button>
+      </div>
+      <p className="muted small">
+        Choose Change, then press the new combination. Hold Ctrl or Alt so typing in
+        a field never triggers a shortcut. Escape cancels. Changes are kept on this
+        device.
+      </p>
+      <table className="shortcut-table" ref={tableRef}>
+        <caption className="sr-only">Keyboard shortcuts and their keys</caption>
+        <thead>
+          <tr>
+            <th scope="col">Action</th>
+            <th scope="col" className="keys">
+              Keys
+            </th>
+            <th scope="col" className="actions">
+              <span className="sr-only">Change or reset</span>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {SHORTCUTS.map((def) => (
+            <tr key={def.id} data-shortcut={def.id}>
+              <th scope="row">{def.label}</th>
+              <td className="keys">
+                {editing === def.id ? (
+                  <span className="shortcut-capture">Press the new keys…</span>
+                ) : (
+                  <KeyCaps binding={bindings[def.id]} />
+                )}
+              </td>
+              <td className="actions">
+                {editing === def.id ? (
+                  <button
+                    type="button"
+                    ref={captureRef}
+                    className="btn btn-sm btn-primary"
+                    aria-label={`Press the new keys for ${def.label}, or Escape to cancel`}
+                    onKeyDown={(event) => onCapture(event, def.id)}
+                    onBlur={() => setEditing(null)}
+                  >
+                    Listening…
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      className="btn btn-sm"
+                      aria-label={`Change shortcut for ${def.label}`}
+                      onClick={() => startEditing(def.id)}
+                    >
+                      Change
+                    </button>{' '}
+                    <button
+                      type="button"
+                      className="btn btn-sm"
+                      aria-label={`Reset shortcut for ${def.label}`}
+                      onClick={() => reset(def.id)}
+                      disabled={!isCustom(def.id)}
+                    >
+                      Reset
+                    </button>
+                  </>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {problem ? (
+        <div className="banner banner-error" role="alert">
+          {problem}
+        </div>
+      ) : null}
+      <p className="muted small" role="status">
+        {status}
+      </p>
+    </section>
+  );
+}
 
 export function Settings() {
   const {
@@ -106,7 +280,7 @@ export function Settings() {
       <div className="page-head">
         <div>
           <h1>Settings</h1>
-          <span className="sub">Account, currency, Plane connection and privacy</span>
+          <span className="sub">Account, shortcuts, currency, Plane connection and privacy</span>
         </div>
       </div>
 
@@ -155,6 +329,8 @@ export function Settings() {
             : 'not loaded'}
         </p>
       </section>
+
+      <ShortcutsSection />
 
       <section className="card card-pad stack">
         <div className="section-title">

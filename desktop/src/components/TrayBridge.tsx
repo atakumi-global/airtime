@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { useApp } from '../state/AppContext';
+import { useTrayActions } from './useTrayActions';
 import { onTrayAction, setTrayState } from '../lib/tray';
-import { buildTrayPayload, lastWorkItem, type TrayAction } from '../lib/trayState';
+import { buildTrayPayload, type TrayAction } from '../lib/trayState';
 
 /** Re-report while a clock counts, so the tray cannot drift far from the timer bar. */
 const RESYNC_MS = 30_000;
@@ -27,11 +28,6 @@ export function TrayBridge({
     entries,
     queue,
     online,
-    startTimer,
-    pauseTimer,
-    resumeTimer,
-    stopTimer,
-    refresh,
   } = useApp();
 
   const reported = useRef('');
@@ -67,6 +63,7 @@ export function TrayBridge({
     return () => window.clearInterval(handle);
   }, [status, online, timer, timerState, workItems, entries, queue.length]);
 
+  const run = useTrayActions({ onBackfill, onTimesheet, onSettings });
   const latest = useRef<(action: TrayAction) => void>(() => {});
   useEffect(() => {
     latest.current = (action) => {
@@ -74,53 +71,9 @@ export function TrayBridge({
         // Signed out or still loading: the window is shown, nothing else to run.
         return;
       }
-      switch (action) {
-        case 'start-last': {
-          const last = lastWorkItem(entries, workItems);
-          if (last && !timer) {
-            void startTimer(last.plane_work_item_id);
-          }
-          break;
-        }
-        case 'pause':
-          void pauseTimer();
-          break;
-        case 'resume':
-          void resumeTimer();
-          break;
-        case 'stop':
-          void stopTimer();
-          break;
-        case 'retry':
-          void refresh();
-          break;
-        case 'backfill':
-          onBackfill();
-          break;
-        case 'timesheet':
-          onTimesheet();
-          break;
-        case 'settings':
-          onSettings();
-          break;
-        case 'open':
-          break;
-      }
+      run(action);
     };
-  }, [
-    status,
-    entries,
-    onBackfill,
-    onSettings,
-    onTimesheet,
-    pauseTimer,
-    refresh,
-    resumeTimer,
-    startTimer,
-    stopTimer,
-    timer,
-    workItems,
-  ]);
+  }, [status, run]);
 
   useEffect(() => {
     let active = true;

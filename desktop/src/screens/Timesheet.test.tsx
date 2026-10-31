@@ -319,4 +319,31 @@ describe('Timesheet', () => {
       expect(screen.queryByRole('button', { name: 'Export' })).toBeNull();
     });
   });
+
+  describe('save shortcut in the bulk entry table', () => {
+    it('Ctrl+Enter saves every valid row', async () => {
+      const { server } = await setup(sheet([]));
+      server.on('POST /api/time-entries', () => ({ entry: timeEntry() }));
+      fireEvent.click(screen.getByRole('button', { name: 'Add row' }));
+      const duration = (await screen.findByRole('textbox', { name: '' })) as HTMLInputElement;
+      fireEvent.change(duration, { target: { value: '1h' } });
+
+      fireEvent.keyDown(duration, { key: 'Enter', ctrlKey: true });
+
+      await waitFor(() => expect(server.callsTo('POST /api/time-entries')).toHaveLength(1));
+    });
+
+    it('does not save on Alt+Enter and names the save keys in the hint', async () => {
+      const { server } = await setup(sheet([]));
+      server.on('POST /api/time-entries', () => ({ entry: timeEntry() }));
+      fireEvent.click(screen.getByRole('button', { name: 'Add row' }));
+      const duration = (await screen.findByRole('textbox', { name: '' })) as HTMLInputElement;
+      fireEvent.change(duration, { target: { value: '1h' } });
+
+      fireEvent.keyDown(duration, { key: 'Enter', altKey: true });
+
+      expect(server.callsTo('POST /api/time-entries')).toHaveLength(0);
+      expect(screen.getByText('Control Enter', { selector: '.sr-only' })).toBeTruthy();
+    });
+  });
 });

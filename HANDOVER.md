@@ -149,6 +149,18 @@ AIRTIME-1, 3, 4, 5, 7, 8, 9, 10, 16, 17–24, 26, 31, 32, 33, 53, 55.
   Quit Airtime exits; title bar drags, double-click maximises, controls work.
   AIRTIME-36 and 37 add modules beside `tray/`.
 
+- **AIRTIME-37** shortcut help surface and remaining shortcuts — desktop only.
+  `lib/shortcuts.ts` holds the map (Ctrl+Alt+T timer, Ctrl+Alt+B back-fill,
+  Ctrl+K search work items, Ctrl+Alt+S timesheet, Ctrl+Alt+M tray menu,
+  Ctrl+Enter save) and `state/ShortcutsContext.tsx` the bindings, stored per
+  device in `localStorage` (`airtime.shortcuts`). Help is Shell nav "Keyboard
+  shortcuts"; rebinding is in Settings. Dialogs share `ModalDialog` (focus trap,
+  Escape, save shortcut). Ctrl+Alt+M opens an in-window copy of the tray menu
+  (`TrayMenuDialog`, same actions as the tray through `useTrayActions`). Limits:
+  shortcuts work while the Airtime window has focus; OS-wide hotkeys (a hidden
+  window) would need the Tauri global-shortcut plugin and are not built. Not run
+  on Windows.
+
 ### Not fully done
 
 - **AIRTIME-27** PDF export — not started; needs a template review and a server
