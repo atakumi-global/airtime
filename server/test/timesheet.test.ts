@@ -145,6 +145,69 @@ test('uncosted entries are counted separately and left out of the cost', async (
   assert.equal(result.entries[0].cost_uncosted, true);
 });
 
+test('mixed rated and unrated entries split the billable minutes', async () => {
+  const { organisationId, admin, member } = await seed();
+  const ratedProjectId = await createProject(organisationId);
+  const db = getDb();
+  const unratedProjectId = randomUUID();
+  await db.query(
+    `INSERT INTO projects (id, organisation_id, plane_project_id, name, identifier)
+     VALUES ($1, $2, 'plane-p2', 'Intranet', 'INT')`,
+    [unratedProjectId, organisationId],
+  );
+  await db.query(
+    `INSERT INTO work_items
+       (id, organisation_id, project_id, plane_work_item_id, identifier, name, is_open)
+     VALUES ($1, $2, $3, 'wi-2', 'INT-1', 'Unrated work', true)`,
+    [randomUUID(), organisationId, unratedProjectId],
+  );
+  const adminToken = await login(app, admin.email, admin.password);
+  const memberToken = await login(app, member.email, member.password);
+  await setRate(adminToken, {
+    scope: 'project',
+    projectId: ratedProjectId,
+    currency: 'USD',
+    hourlyAmount: 60,
+  });
+
+  // Rated: 60m, plus 5m that is floored to 10 billable minutes.
+  await addEntryAt(
+    memberToken,
+    '2026-09-21T09:00:00.000Z',
+    '2026-09-21T10:00:00.000Z',
+  );
+  await addEntryAt(
+    memberToken,
+    '2026-09-22T09:00:00.000Z',
+    '2026-09-22T09:05:00.000Z',
+  );
+  // Unrated: 30m on a project with no member, project or client rate.
+  const unrated = await app.inject({
+    method: 'POST',
+    url: '/api/time-entries',
+    headers: auth(memberToken),
+    payload: {
+      workItemId: 'wi-2',
+      startedAt: '2026-09-23T09:00:00.000Z',
+      endedAt: '2026-09-23T09:30:00.000Z',
+    },
+  });
+  assert.equal(unrated.statusCode, 201);
+
+  const result = await summary(
+    memberToken,
+    'from=2026-09-21T00:00:00.000Z&to=2026-09-28T00:00:00.000Z',
+  );
+
+  assert.equal(result.totals.entryCount, 3);
+  assert.equal(result.totals.totalMinutes, 95);
+  assert.equal(result.totals.billableMinutes, 100);
+  assert.deepEqual(result.totals.uncosted, { entries: 1, minutes: 30 });
+  assert.equal(result.totals.cost, 70);
+  const flags = result.entries.map((entry) => entry.cost_uncosted);
+  assert.equal(flags.filter(Boolean).length, 1);
+});
+
 test('a member sees their own entries and a manager can name a member', async () => {
   const { organisationId, admin, manager, member } = await seed();
   await createProject(organisationId);

@@ -8,6 +8,7 @@ import { Metric, Badge } from '../components/ui';
 import { EntryDialog } from '../components/EntryDialog';
 import { DurationInput } from '../components/DurationInput';
 import { NetworkError } from '../lib/api';
+import { timesheetMetrics } from '../lib/timesheet';
 import {
   billableMinutes,
   dateInputValue,
@@ -166,10 +167,7 @@ export function Timesheet({ onBackfill }: { onBackfill: () => void }) {
   }, [mode, anchor, loadTimesheet, entries, organisation]);
 
   const totals = summary?.totals;
-  const billableShare =
-    totals && totals.totalMinutes > 0
-      ? Math.round((totals.billableMinutes / totals.totalMinutes) * 100)
-      : 0;
+  const metrics = totals ? timesheetMetrics(totals) : null;
 
   const addDraft = (options: { date?: string; workItemId?: string } = {}) => {
     const row: DraftRow = {
@@ -430,12 +428,16 @@ export function Timesheet({ onBackfill }: { onBackfill: () => void }) {
           />
           <Metric
             label="Billable"
-            value={formatDuration(totals.billableMinutes)}
-            detail={`${billableShare}% of total`}
+            value={offline ? '—' : formatDuration(metrics?.billableMinutes ?? 0)}
+            detail={
+              offline
+                ? 'needs the server'
+                : `${metrics?.costedShare ?? 0}% of billable time`
+            }
           />
           <Metric
             label="Uncosted"
-            value={offline ? '—' : formatDuration(totals.uncosted.minutes)}
+            value={offline ? '—' : formatDuration(metrics?.uncostedMinutes ?? 0)}
             detail={offline ? 'needs the server' : 'excluded from cost'}
           />
           <Metric
