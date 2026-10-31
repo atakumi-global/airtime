@@ -24,6 +24,9 @@ import type {
   BudgetSummary,
   CacheSnapshot,
   EntryHistoryEvent,
+  Expense,
+  ExpenseHistoryEvent,
+  ExpenseInput,
   FeedbackEvent,
   FxRates,
   Member,
@@ -99,6 +102,11 @@ type AppValue = {
     projectId: string,
   ) => Promise<{ project: Project; summary: BudgetSummary }>;
   loadProjectEntries: (projectId: string) => Promise<TimeEntry[]>;
+  loadProjectExpenses: (projectId: string) => Promise<Expense[]>;
+  addExpense: (projectId: string, input: ExpenseInput) => Promise<void>;
+  editExpense: (id: string, input: Partial<ExpenseInput>) => Promise<void>;
+  removeExpense: (id: string) => Promise<void>;
+  expenseHistory: (id: string) => Promise<ExpenseHistoryEvent[]>;
   getBudget: (projectId: string) => Promise<Budget | null>;
   setBudget: (
     projectId: string,
@@ -670,6 +678,40 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [ensureClient],
   );
 
+  const loadProjectExpenses = useCallback(
+    async (projectId: string) => ensureClient().projectExpenses(projectId),
+    [ensureClient],
+  );
+
+  const addExpense = useCallback(
+    async (projectId: string, input: ExpenseInput) => {
+      await ensureClient().createExpense(projectId, input);
+      await refresh();
+    },
+    [ensureClient, refresh],
+  );
+
+  const editExpense = useCallback(
+    async (id: string, input: Partial<ExpenseInput>) => {
+      await ensureClient().updateExpense(id, input);
+      await refresh();
+    },
+    [ensureClient, refresh],
+  );
+
+  const removeExpense = useCallback(
+    async (id: string) => {
+      await ensureClient().deleteExpense(id);
+      await refresh();
+    },
+    [ensureClient, refresh],
+  );
+
+  const expenseHistory = useCallback(
+    async (id: string) => ensureClient().expenseHistory(id),
+    [ensureClient],
+  );
+
   const setBudget = useCallback(
     async (
       projectId: string,
@@ -832,6 +874,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       loadTimesheet,
       loadProjectSummary,
       loadProjectEntries,
+      loadProjectExpenses,
+      addExpense,
+      editExpense,
+      removeExpense,
+      expenseHistory,
       getBudget,
       setBudget,
       removeBudget,
@@ -889,6 +936,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       loadTimesheet,
       loadProjectSummary,
       loadProjectEntries,
+      loadProjectExpenses,
+      addExpense,
+      editExpense,
+      removeExpense,
+      expenseHistory,
       getBudget,
       setBudget,
       removeBudget,

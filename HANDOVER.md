@@ -154,7 +154,7 @@ AIRTIME-1, 3, 4, 5, 7, 8, 9, 10, 16, 17–24, 26, 31, 32, 33, 53, 55.
 - **AIRTIME-27** PDF export — not started; needs a template review and a server
   PDF library. Blocks AIRTIME-69 (invoicing).
 - **AIRTIME-28** multi-workspace sync — not started; sized L.
-- **AIRTIME-25** track expenses — not started.
+- **AIRTIME-25** track expenses — built (migration `010_expenses`, `/api/projects/:id/expenses`, `/api/expenses/:id`, cost and CSV export include expenses, desktop Expenses panel and dialog); In Review.
 - **AIRTIME-11–15** future activity capture — backlog by design.
 - **AIRTIME-17–24** Design 1–8 — coded work exists in `prototypes/AIRTIME-16/v2`,
   but the tickets are still Todo; they need a decision to close, not code.

@@ -1,6 +1,6 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { ADMIN, PLAIN_MEMBER, PROJECTS, summary, timeEntry } from '../test/fixtures';
+import { ADMIN, PLAIN_MEMBER, PROJECTS, expense, summary, timeEntry } from '../test/fixtures';
 import { field, mountApp, renderReady, seedSession } from '../test/harness';
 import { FakeServer, reject } from '../test/server';
 import { Projects } from './Projects';
@@ -124,6 +124,60 @@ describe('Projects', () => {
 
     await waitFor(() => expect(screen.queryByText('summary failed')).toBeNull());
     expect(await screen.findByText('Recent time entries')).toBeTruthy();
+  });
+
+  it('lists expenses in the detail and lets a manager add one', async () => {
+    const { server } = await setup();
+    server.on('GET /api/projects/project-1/expenses', () => ({
+      expenses: [
+        expense(),
+        expense({
+          id: 'expense-2',
+          category: 'travel',
+          note: null,
+          currency: 'GBP',
+          amount: '100.00',
+          amount_reporting: '115.0000',
+          fx_rate: '1.15000000',
+        }),
+      ],
+    }));
+    server.on('GET /api/projects/project-1/summary', () => ({
+      project: PROJECTS[0],
+      summary: summary({
+        spent: 635,
+        expenses: {
+          total: 235,
+          count: 2,
+          byCategory: { licences: 120, travel: 115, hardware: 0, subcontractors: 0, other: 0 },
+          currencyTotals: { EUR: 120, GBP: 100 },
+          unconverted: 0,
+        },
+      }),
+    }));
+    server.on('POST /api/projects/project-1/expenses', () => ({ expense: expense() }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Website' }));
+    expect(await screen.findByText('Licences · Design tool seats')).toBeTruthy();
+    expect(screen.getByText('Travel')).toBeTruthy();
+    expect(screen.getByText('€235')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add expense' }));
+    fireEvent.change(field('Amount'), { target: { value: '20' } });
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Add expense' }));
+    await waitFor(() => expect(server.callsTo('POST /api/projects/project-1/expenses')).toHaveLength(1));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+
+  it('shows expenses read-only to a member', async () => {
+    const { server } = await setup(PLAIN_MEMBER);
+    server.on('GET /api/projects/project-1/expenses', () => ({ expenses: [expense()] }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Website' }));
+    expect(await screen.findByText('Licences · Design tool seats')).toBeTruthy();
+    expect(screen.getByText('Read-only')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Add expense' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Edit expense/ })).toBeNull();
   });
 
   it('navigates to Rates and Reports from the detail', async () => {
