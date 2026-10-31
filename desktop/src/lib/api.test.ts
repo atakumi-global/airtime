@@ -56,6 +56,54 @@ describe('ApiClient', () => {
     await expect(client.timer()).rejects.toBeInstanceOf(NetworkError);
   });
 
+  it('pauses and resumes the timer through the timer endpoints', async () => {
+    const paused = {
+      member_id: 'm1',
+      project_id: null,
+      work_item_id: null,
+      description: null,
+      started_at: '2026-09-27T10:00:00.000Z',
+      state: 'paused',
+      paused_at: '2026-09-27T11:00:00.000Z',
+      paused_seconds: 0,
+    };
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ timer: paused }))
+      .mockResolvedValueOnce(
+        jsonResponse({ timer: { ...paused, state: 'running', paused_at: null, paused_seconds: 600 } }),
+      );
+    const client = new ApiClient({
+      baseUrl: 'http://localhost:3000',
+      token: 'token-1',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect((await client.pauseTimer()).state).toBe('paused');
+    const resumed = await client.resumeTimer();
+    expect(resumed.state).toBe('running');
+    expect(resumed.paused_seconds).toBe(600);
+
+    const calls = fetchImpl.mock.calls as unknown as Array<[string, RequestInit]>;
+    expect(calls[0]![0]).toBe('http://localhost:3000/api/timer/pause');
+    expect(calls[0]![1].method).toBe('POST');
+    expect(calls[1]![0]).toBe('http://localhost:3000/api/timer/resume');
+    expect(calls[1]![1].method).toBe('POST');
+  });
+
+  it('surfaces a pause conflict as an ApiError', async () => {
+    const fetchImpl = vi.fn(async () => jsonResponse({ error: 'already_paused' }, 409));
+    const client = new ApiClient({
+      baseUrl: 'http://localhost:3000',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    await expect(client.pauseTimer()).rejects.toMatchObject({
+      status: 409,
+      message: 'already_paused',
+    });
+  });
+
   it('patches an entry with the expected payload', async () => {
     const fetchImpl = vi.fn(async () => jsonResponse({ entry: { id: 'e1' } }));
     const client = new ApiClient({

@@ -239,6 +239,25 @@ p {
   font-weight: 600;
 }
 
+.timerbar-running {
+  border-top-color: var(--brand);
+}
+
+.timerbar-paused {
+  border-top-color: var(--warning-strong);
+}
+
+.timerbar .flag-paused {
+  color: var(--warning-strong);
+  font-weight: 600;
+}
+
+.timerbar .btn-icon {
+  min-width: 32px;
+  min-height: 32px;
+  padding: 4px 8px;
+}
+
 .timerbar .elapsed {
   font-size: 20px;
   font-weight: 600;

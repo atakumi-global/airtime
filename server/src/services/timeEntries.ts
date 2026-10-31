@@ -34,6 +34,12 @@ export type TimerRow = {
   work_item_id: string | null;
   description: string | null;
   started_at: Date;
+  /** 'running' or 'paused'; derived from paused_at by the database. */
+  state: 'running' | 'paused';
+  /** Set while the timer is paused; null while it is running. */
+  paused_at: Date | null;
+  /** Total time spent paused before the current pause, in seconds. */
+  paused_seconds: number;
   created_at: Date;
   updated_at: Date;
 };
@@ -175,11 +181,13 @@ async function stopRunningTimer(
     return null;
   }
 
-  const endedAt = new Date();
-  const durationMinutes = Math.max(
-    1,
-    Math.round((endedAt.getTime() - new Date(timer.started_at).getTime()) / 60000),
-  );
+  // A paused timer ends where the pause began; paused time is never counted.
+  const endedAt = timer.paused_at ? new Date(timer.paused_at) : new Date();
+  const activeMs =
+    endedAt.getTime() -
+    new Date(timer.started_at).getTime() -
+    timer.paused_seconds * 1000;
+  const durationMinutes = Math.max(1, Math.round(activeMs / 60000));
   const entry = await insertEntry(client, {
     organisationId,
     memberId,
@@ -231,6 +239,58 @@ export async function startTimer(
       ],
     );
     return result.rows[0]!;
+  });
+}
+
+export type TimerTransition =
+  | { ok: true; timer: TimerRow }
+  | { ok: false; error: 'no_timer' | 'already_paused' | 'not_paused' };
+
+export async function pauseTimer(
+  db: Db,
+  input: { organisationId: string; memberId: string },
+): Promise<TimerTransition> {
+  return db.withTransaction(async (client) => {
+    const result = await client.query<TimerRow>(
+      `UPDATE timers
+          SET paused_at = now(), updated_at = now()
+        WHERE organisation_id = $1 AND member_id = $2 AND paused_at IS NULL
+        RETURNING *`,
+      [input.organisationId, input.memberId],
+    );
+    if (result.rows[0]) {
+      return { ok: true, timer: result.rows[0] };
+    }
+    const existing = await client.query<TimerRow>(
+      'SELECT * FROM timers WHERE organisation_id = $1 AND member_id = $2',
+      [input.organisationId, input.memberId],
+    );
+    return { ok: false, error: existing.rows[0] ? 'already_paused' : 'no_timer' };
+  });
+}
+
+export async function resumeTimer(
+  db: Db,
+  input: { organisationId: string; memberId: string },
+): Promise<TimerTransition> {
+  return db.withTransaction(async (client) => {
+    const result = await client.query<TimerRow>(
+      `UPDATE timers
+          SET paused_seconds = paused_seconds + EXTRACT(EPOCH FROM (now() - paused_at)),
+              paused_at = NULL,
+              updated_at = now()
+        WHERE organisation_id = $1 AND member_id = $2 AND paused_at IS NOT NULL
+        RETURNING *`,
+      [input.organisationId, input.memberId],
+    );
+    if (result.rows[0]) {
+      return { ok: true, timer: result.rows[0] };
+    }
+    const existing = await client.query<TimerRow>(
+      'SELECT * FROM timers WHERE organisation_id = $1 AND member_id = $2',
+      [input.organisationId, input.memberId],
+    );
+    return { ok: false, error: existing.rows[0] ? 'not_paused' : 'no_timer' };
   });
 }
 

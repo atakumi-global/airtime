@@ -129,6 +129,14 @@ AIRTIME-1, 3, 4, 5, 7, 8, 9, 10, 16, 17–24, 26, 31, 32, 33, 53, 55.
   project" is served by the Projects list, not a project detail screen; that is
   AIRTIME-43.
 
+### In Review
+
+- **AIRTIME-34** paused timer state — `POST /api/timer/pause` and `/resume`,
+  migration `009_timer_pause`, timer bar Pause/Resume and paused state; the
+  desktop context exposes `timerState` (`idle`, `running`, `paused`),
+  `pauseTimer` and `resumeTimer` for the tray work (AIRTIME-35–37). The tray
+  itself is not part of this item.
+
 ### Not fully done
 
 - **AIRTIME-27** PDF export — not started; needs a template review and a server
@@ -138,7 +146,7 @@ AIRTIME-1, 3, 4, 5, 7, 8, 9, 10, 16, 17–24, 26, 31, 32, 33, 53, 55.
 - **AIRTIME-11–15** future activity capture — backlog by design.
 - **AIRTIME-17–24** Design 1–8 — coded work exists in `prototypes/AIRTIME-16/v2`,
   but the tickets are still Todo; they need a decision to close, not code.
-- **AIRTIME-30, 34–52, 54, 56** — the rest of the QA-audit batch. High-priority
+- **AIRTIME-30, 35–52, 54, 56** — the rest of the QA-audit batch. High-priority
   missing items: 42 (Price, Profit and targets), 43 (project detail).
 - **AIRTIME-57–70** — the newer roadmap batch, untouched.
 - **AIRTIME-33 follow-up** — the PO-added bulk update/delete was descoped; it

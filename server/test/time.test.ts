@@ -273,3 +273,139 @@ test('a period with no entries returns an empty list', async () => {
   assert.equal(response.statusCode, 200);
   assert.deepEqual(response.json().entries, []);
 });
+
+async function startFor(token: string): Promise<void> {
+  const started = await app.inject({
+    method: 'POST',
+    url: '/api/timer/start',
+    headers: auth(token),
+    payload: { workItemId: 'wi-1' },
+  });
+  assert.equal(started.statusCode, 201);
+  assert.equal(started.json().timer.state, 'running');
+  assert.equal(started.json().timer.paused_at, null);
+}
+
+async function shiftTimer(memberId: string, sql: string): Promise<void> {
+  await getDb().query(`UPDATE timers SET ${sql} WHERE member_id = $1`, [memberId]);
+}
+
+test('pausing a timer persists the paused state and freezes it', async () => {
+  const { organisationId, member } = await seed();
+  await createWorkItem(organisationId);
+  const token = await login(app, member.email, member.password);
+  await startFor(token);
+
+  const paused = await app.inject({
+    method: 'POST',
+    url: '/api/timer/pause',
+    headers: auth(token),
+  });
+  assert.equal(paused.statusCode, 200);
+  assert.equal(paused.json().timer.state, 'paused');
+  assert.ok(paused.json().timer.paused_at);
+
+  // A fresh read (an app restart) still sees the paused timer.
+  const read = await app.inject({
+    method: 'GET',
+    url: '/api/timer',
+    headers: auth(token),
+  });
+  assert.equal(read.json().timer.state, 'paused');
+  assert.equal(read.json().timer.paused_at, paused.json().timer.paused_at);
+
+  const again = await app.inject({
+    method: 'POST',
+    url: '/api/timer/pause',
+    headers: auth(token),
+  });
+  assert.equal(again.statusCode, 409);
+  assert.equal(again.json().error, 'already_paused');
+});
+
+test('resuming adds the paused time to the timer and keeps the elapsed time', async () => {
+  const { organisationId, member } = await seed();
+  await createWorkItem(organisationId);
+  const token = await login(app, member.email, member.password);
+  await startFor(token);
+
+  const notPaused = await app.inject({
+    method: 'POST',
+    url: '/api/timer/resume',
+    headers: auth(token),
+  });
+  assert.equal(notPaused.statusCode, 409);
+  assert.equal(notPaused.json().error, 'not_paused');
+
+  await app.inject({ method: 'POST', url: '/api/timer/pause', headers: auth(token) });
+  // Pretend: started 120 minutes ago, paused 60 minutes ago.
+  await shiftTimer(
+    member.id,
+    "started_at = now() - interval '120 minutes', paused_at = now() - interval '60 minutes'",
+  );
+
+  const resumed = await app.inject({
+    method: 'POST',
+    url: '/api/timer/resume',
+    headers: auth(token),
+  });
+  assert.equal(resumed.statusCode, 200);
+  const timer = resumed.json().timer;
+  assert.equal(timer.state, 'running');
+  assert.equal(timer.paused_at, null);
+  assert.ok(Math.abs(timer.paused_seconds - 3600) < 5);
+
+  const stopped = await app.inject({
+    method: 'POST',
+    url: '/api/timer/stop',
+    headers: auth(token),
+  });
+  assert.equal(stopped.statusCode, 200);
+  // 120 minutes elapsed minus 60 minutes paused.
+  assert.equal(stopped.json().entry.duration_minutes, 60);
+  assert.equal(stopped.json().entry.billable_minutes, 60);
+});
+
+test('stopping a paused timer ends the entry at the pause and drops the timer', async () => {
+  const { organisationId, member } = await seed();
+  await createWorkItem(organisationId);
+  const token = await login(app, member.email, member.password);
+  await startFor(token);
+  await app.inject({ method: 'POST', url: '/api/timer/pause', headers: auth(token) });
+  await shiftTimer(
+    member.id,
+    "started_at = now() - interval '120 minutes', paused_at = now() - interval '45 minutes'",
+  );
+
+  const stopped = await app.inject({
+    method: 'POST',
+    url: '/api/timer/stop',
+    headers: auth(token),
+  });
+  assert.equal(stopped.statusCode, 200);
+  assert.equal(stopped.json().entry.duration_minutes, 75);
+
+  const read = await app.inject({ method: 'GET', url: '/api/timer', headers: auth(token) });
+  assert.equal(read.json().timer, null);
+});
+
+test('pause and resume without a timer answer 409 no_timer', async () => {
+  const { member } = await seed();
+  const token = await login(app, member.email, member.password);
+  for (const action of ['pause', 'resume']) {
+    const response = await app.inject({
+      method: 'POST',
+      url: `/api/timer/${action}`,
+      headers: auth(token),
+    });
+    assert.equal(response.statusCode, 409);
+    assert.equal(response.json().error, 'no_timer');
+  }
+});
+
+test('pause and resume require authentication', async () => {
+  for (const action of ['pause', 'resume']) {
+    const response = await app.inject({ method: 'POST', url: `/api/timer/${action}` });
+    assert.equal(response.statusCode, 401);
+  }
+});
