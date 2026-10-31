@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { after, before, beforeEach, test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { FastifyInstance } from 'fastify';
+import { csvField } from '../src/services/export.js';
 import { auth, getDb, login, makeApp, resetData, seed, setupSchema } from './helpers.js';
 
 let app: FastifyInstance;
@@ -147,4 +148,49 @@ test('a member cannot export CSV', async () => {
     headers: auth(token),
   });
   assert.equal(response.statusCode, 403);
+});
+
+test('csvField neutralises values that start with a formula character', () => {
+  for (const char of ['=', '+', '-', '@', '\t', '\r']) {
+    assert.equal(csvField(`${char}1+1`).replace(/^"|"$/g, ''), `'${char}1+1`, `char ${JSON.stringify(char)}`);
+  }
+  assert.equal(csvField('=HYPERLINK("http://x")'), `"'=HYPERLINK(""http://x"")"`);
+  assert.equal(csvField('=SUM(A1,A2)'), `"'=SUM(A1,A2)"`);
+});
+
+test('csvField leaves normal values unchanged', () => {
+  assert.equal(csvField('Fix login'), 'Fix login');
+  assert.equal(csvField('a=b'), 'a=b');
+  assert.equal(csvField('2025-01-31'), '2025-01-31');
+  assert.equal(csvField(''), '');
+  assert.equal(csvField(null), '');
+  assert.equal(csvField(undefined), '');
+  assert.equal(csvField(60), '60');
+  assert.equal(csvField(-1.5), '-1.5');
+  assert.equal(csvField(false), 'false');
+});
+
+test('an exported description starting with = is neutralised', async () => {
+  const { organisationId, manager, member } = await seed();
+  const a = await createProjectState(organisationId, 'a');
+  const memberToken = await login(app, member.email, member.password);
+  const managerToken = await login(app, manager.email, manager.password);
+  const entry = await app.inject({
+    method: 'POST',
+    url: '/api/time-entries',
+    headers: auth(memberToken),
+    payload: {
+      workItemId: a.workItemId,
+      durationMinutes: 15,
+      description: '=HYPERLINK("http://x")',
+    },
+  });
+  assert.equal(entry.statusCode, 201);
+  const response = await app.inject({
+    method: 'GET',
+    url: '/api/exports/time-entries.csv',
+    headers: auth(managerToken),
+  });
+  assert.equal(response.statusCode, 200);
+  assert.ok(response.body.includes(`,"'=HYPERLINK(""http://x"")",manual,`));
 });

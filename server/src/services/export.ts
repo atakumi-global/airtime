@@ -24,7 +24,12 @@ export function csvField(value: unknown): string {
   if (value === null || value === undefined) {
     return '';
   }
-  const text = String(value);
+  let text = String(value);
+  // Text starting with a formula trigger is prefixed with a single quote so
+  // spreadsheets show it as text. Numbers are not user text and stay as they are.
+  if (typeof value === 'string' && /^[=+\-@\t\r]/.test(text)) {
+    text = `'${text}`;
+  }
   if (/[",\r\n]/.test(text)) {
     return `"${text.replace(/"/g, '""')}"`;
   }
@@ -97,8 +102,8 @@ export async function buildTimeEntriesCsv(
   const lines = [header.join(',')];
   for (const row of rows) {
     const costed = costEntry(index, row, row.project_client_id);
-    let costReporting = '';
-    let fxRate = '';
+    let costReporting: number | '' = '';
+    let fxRate: number | '' = '';
     let fxDate = '';
     let fxStale = '';
     if (costed.cost !== null && costed.currency !== null) {
@@ -109,8 +114,8 @@ export async function buildTimeEntriesCsv(
         snapshot,
       );
       if (conversion) {
-        costReporting = String(conversion.amount);
-        fxRate = String(conversion.rate);
+        costReporting = conversion.amount;
+        fxRate = conversion.rate;
         fxDate = conversion.date ?? '';
         fxStale = String(conversion.stale);
       }

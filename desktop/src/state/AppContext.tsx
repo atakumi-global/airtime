@@ -186,6 +186,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const clientRef = useRef<ApiClient>(new ApiClient({ baseUrl: DEFAULT_BASE_URL }));
   const tokenRef = useRef<string | null>(null);
   const timerSourceRef = useRef<'server' | 'local'>('server');
+  // The cache is only written once boot has read it; otherwise the first
+  // render would overwrite the saved snapshot (and the offline queue) with
+  // empty state before it is loaded.
+  const cacheLoadedRef = useRef(false);
   const queueRef = useRef<QueuedEntry[]>([]);
   const stateRef = useRef({
     member,
@@ -203,6 +207,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [member, organisation, projects, workItems, entries, timer, queue]);
 
   const persist = useCallback(async () => {
+    if (!cacheLoadedRef.current) {
+      return;
+    }
     const snapshot = cachePayload({
       member: stateRef.current.member,
       organisation: stateRef.current.organisation,
@@ -344,6 +351,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           // ignore a corrupt cache
         }
       }
+      cacheLoadedRef.current = true;
 
       const token = await loadSecret(SESSION_KEY);
       if (cancelled) {
