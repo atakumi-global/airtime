@@ -137,6 +137,18 @@ AIRTIME-1, 3, 4, 5, 7, 8, 9, 10, 16, 17–24, 26, 31, 32, 33, 53, 55.
   `pauseTimer` and `resumeTimer` for the tray work (AIRTIME-35–37). The tray
   itself is not part of this item.
 
+- **AIRTIME-35** system tray and close-to-tray — `desktop/src-tauri/src/tray/`
+  (`model.rs`, `icon.rs`, `mod.rs`), frameless window with the 36px
+  `TitleBar` and live mini-timer, `TrayBridge` mirroring `timerState` into the
+  tray. The Tauri v2 Windows capability matrix is recorded in
+  `desktop/README.md`. Not yet run on Windows (built and type-checked on Linux
+  only). Manual pass on Windows with `npm run tauri dev`: tray icon appears and
+  swaps glyph for idle / running / paused / offline; left click restores the
+  window; right-click menu shows the state's primary action; Close hides to the
+  tray and the running timer keeps counting in the tray tooltip and menu;
+  Quit Airtime exits; title bar drags, double-click maximises, controls work.
+  AIRTIME-36 and 37 add modules beside `tray/`.
+
 ### Not fully done
 
 - **AIRTIME-27** PDF export — not started; needs a template review and a server

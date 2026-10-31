@@ -1,6 +1,8 @@
 use std::fs;
 use tauri::Manager;
 
+mod tray;
+
 const KEYRING_SERVICE: &str = "com.atakumi.airtime";
 
 fn entry(key: &str) -> Result<keyring::Entry, String> {
@@ -61,6 +63,8 @@ fn cache_write(app: tauri::AppHandle, contents: String) -> Result<(), String> {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_http::init())
+        .manage(tray::TrayState::new())
+        .on_window_event(tray::on_window_event)
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(
@@ -69,6 +73,7 @@ pub fn run() {
                         .build(),
                 )?;
             }
+            tray::start(app.handle().clone());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -76,7 +81,8 @@ pub fn run() {
             load_secret,
             delete_secret,
             cache_read,
-            cache_write
+            cache_write,
+            tray::set_tray_state
         ])
         .run(tauri::generate_context!())
         .expect("error while building tauri application");
