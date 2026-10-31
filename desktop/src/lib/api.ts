@@ -276,11 +276,13 @@ export class ApiClient {
   }
 
   async refreshFx(): Promise<FxRates> {
-    const body = await this.request<{ rates: FxRates }>('/api/fx/refresh', {
-      method: 'POST',
-      body: JSON.stringify({}),
-    });
-    return body.rates;
+    // POST /api/fx/refresh answers { refreshed, stored, date }, not the snapshot,
+    // so read the stored snapshot back from GET /api/fx/rates.
+    await this.request<{ refreshed: boolean; stored: number; date: string }>(
+      '/api/fx/refresh',
+      { method: 'POST', body: JSON.stringify({}) },
+    );
+    return this.fxRates();
   }
 
   async updateReportingCurrency(currency: string): Promise<Organisation> {

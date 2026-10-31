@@ -178,4 +178,70 @@ describe('ApiClient', () => {
       marginTargetAmount: 4000,
     });
   });
+
+  it('returns the stored FX snapshot after a refresh', async () => {
+    const snapshot = {
+      base: 'EUR',
+      date: '2026-10-30',
+      stale: false,
+      fetchedAt: '2026-10-30T08:00:00.000Z',
+      rates: { USD: 1.08, GBP: 0.85 },
+    };
+    const fetchImpl = vi.fn(async (url: string) =>
+      url.endsWith('/api/fx/refresh')
+        ? jsonResponse({ refreshed: true, stored: 2, date: '2026-10-30' })
+        : jsonResponse(snapshot),
+    );
+    const client = new ApiClient({
+      baseUrl: 'http://localhost:3000',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    const fx = await client.refreshFx();
+
+    expect(fx.date).toBe('2026-10-30');
+    expect(fx.stale).toBe(false);
+    expect(fx.rates).toEqual({ USD: 1.08, GBP: 0.85 });
+    const calls = fetchImpl.mock.calls as unknown as [string, RequestInit][];
+    expect(calls).toHaveLength(2);
+    expect(calls[0]![0]).toBe('http://localhost:3000/api/fx/refresh');
+    expect(calls[0]![1].method).toBe('POST');
+    expect(calls[1]![0]).toBe('http://localhost:3000/api/fx/rates');
+  });
+
+  it('keeps the stale marker when the stored snapshot is stale', async () => {
+    const fetchImpl = vi.fn(async (url: string) =>
+      url.endsWith('/api/fx/refresh')
+        ? jsonResponse({ refreshed: true, stored: 0, date: '2026-10-01' })
+        : jsonResponse({
+            base: 'EUR',
+            date: '2026-10-01',
+            stale: true,
+            fetchedAt: null,
+            rates: { USD: 1.07 },
+          }),
+    );
+    const client = new ApiClient({
+      baseUrl: 'http://localhost:3000',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    const fx = await client.refreshFx();
+
+    expect(fx.stale).toBe(true);
+    expect(fx.date).toBe('2026-10-01');
+  });
+
+  it('does not read the snapshot when the refresh fails', async () => {
+    const fetchImpl = vi.fn(async () =>
+      jsonResponse({ error: 'fx_refresh_failed', message: 'provider down' }, 502),
+    );
+    const client = new ApiClient({
+      baseUrl: 'http://localhost:3000',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    await expect(client.refreshFx()).rejects.toMatchObject({ status: 502 });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
 });
