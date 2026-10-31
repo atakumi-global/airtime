@@ -70,6 +70,108 @@ p {
 
 /* Layout ------------------------------------------------------------------ */
 
+.frame {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.frame-body {
+  flex: 1;
+  min-height: 0;
+}
+
+/* Title bar (desktop shell only) ------------------------------------------ */
+
+.titlebar {
+  flex: none;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 8px 0 12px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border-subtle);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.titlebar-mark {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  background: var(--brand);
+  color: var(--on-brand);
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.titlebar-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--txt-2);
+}
+
+.titlebar-actions {
+  margin-left: auto;
+  display: flex;
+}
+
+.timermini {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 26px;
+  padding: 0 9px;
+  border-radius: 7px;
+  background: var(--brand-subtle);
+  color: var(--brand);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.timermini-paused {
+  background: var(--warning-subtle);
+  color: var(--warning-strong);
+}
+
+.timermini-mark {
+  font-size: 10px;
+}
+
+.wc {
+  width: 42px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--txt-2);
+  border-radius: 6px;
+  cursor: default;
+}
+
+.wc svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.wc:hover {
+  background: var(--layer-1-hover);
+}
+
+.wc-close:hover {
+  background: var(--danger);
+  color: #fff;
+}
+
 .app {
   display: grid;
   grid-template-columns: 232px 1fr;
