@@ -8,6 +8,9 @@ import {
   formatDurationClock,
   formatDurationHours,
   formatElapsed,
+  formatTimerElapsed,
+  isTimerPaused,
+  timerElapsedSeconds,
   formatMoney,
   parseDuration,
   periodRange,
@@ -116,6 +119,52 @@ describe('formatElapsed', () => {
     const started = new Date('2026-09-27T12:00:00.000Z').toISOString();
     const now = new Date('2026-09-27T11:00:00.000Z').getTime();
     expect(formatElapsed(started, now)).toBe('00:00:00');
+  });
+});
+
+describe('timer pause', () => {
+  const started = '2026-09-27T10:00:00.000Z';
+
+  it('counts a running timer minus the time already paused', () => {
+    const now = new Date('2026-09-27T11:24:05.000Z').getTime();
+    expect(
+      formatTimerElapsed({ started_at: started, state: 'running', paused_seconds: 300 }, now),
+    ).toBe('01:19:05');
+  });
+
+  it('freezes a paused timer at the moment it was paused', () => {
+    const timer = {
+      started_at: started,
+      state: 'paused' as const,
+      paused_at: '2026-09-27T11:24:05.000Z',
+      paused_seconds: 0,
+    };
+    const later = new Date('2026-09-27T15:00:00.000Z').getTime();
+    expect(isTimerPaused(timer)).toBe(true);
+    expect(formatTimerElapsed(timer, later)).toBe('01:24:05');
+    expect(timerElapsedSeconds(timer, later)).toBe(5045);
+  });
+
+  it('keeps the elapsed time across pause and resume', () => {
+    const pausedAt = new Date('2026-09-27T10:30:00.000Z').getTime();
+    const resumedAt = new Date('2026-09-27T10:45:00.000Z').getTime();
+    const before = timerElapsedSeconds(
+      { started_at: started, state: 'paused', paused_at: new Date(pausedAt).toISOString() },
+      resumedAt,
+    );
+    const after = timerElapsedSeconds(
+      { started_at: started, state: 'running', paused_at: null, paused_seconds: 900 },
+      resumedAt,
+    );
+    expect(before).toBe(1800);
+    expect(after).toBe(1800);
+  });
+
+  it('treats a timer cached before pause existed as running', () => {
+    const now = new Date('2026-09-27T10:10:00.000Z').getTime();
+    expect(isTimerPaused({ started_at: started })).toBe(false);
+    expect(isTimerPaused(null)).toBe(false);
+    expect(formatTimerElapsed({ started_at: started }, now)).toBe('00:10:00');
   });
 });
 

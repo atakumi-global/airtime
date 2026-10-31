@@ -1,27 +1,43 @@
 import { useEffect, useState } from 'react';
 import { useApp } from '../state/AppContext';
-import { formatElapsed } from '../lib/format';
+import { formatTimerElapsed } from '../lib/format';
 import { Badge } from './ui';
 
 export function TimerBar() {
-  const { timer, timerPending, workItems, startTimer, stopTimer, online, queue, member } =
-    useApp();
+  const {
+    timer,
+    timerState,
+    timerPending,
+    workItems,
+    startTimer,
+    pauseTimer,
+    resumeTimer,
+    stopTimer,
+    online,
+    queue,
+    member,
+  } = useApp();
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
-    if (!timer) {
+    if (timerState !== 'running') {
       return;
     }
     const handle = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(handle);
-  }, [timer]);
+  }, [timerState]);
 
   const item = timer?.work_item_id
     ? workItems.find((entry) => entry.plane_work_item_id === timer.work_item_id)
     : undefined;
   const label = item
     ? `${item.identifier ?? ''} · ${item.name}`.replace(/^ · /, '')
-    : timer?.description ?? (timer ? 'Timer running' : 'No timer running');
+    : timer?.description ??
+      (timerState === 'paused'
+        ? 'Timer paused'
+        : timer
+          ? 'Timer running'
+          : 'No timer running');
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -39,14 +55,30 @@ export function TimerBar() {
     return () => window.removeEventListener('keydown', onKey);
   }, [startTimer, stopTimer, timer, workItems]);
 
+  const stateWord =
+    timerState === 'paused' ? 'Paused' : timerState === 'running' ? 'Running' : 'Stopped';
+  const elapsedText = timer ? formatTimerElapsed(timer, now) : '00:00:00';
+
   return (
-    <footer className="timerbar" role="region" aria-label="Timer">
+    <footer
+      className={`timerbar timerbar-${timerState}`}
+      role="region"
+      aria-label="Timer"
+      data-timer-state={timerState}
+    >
       <span className="state">
-        {timer ? 'Running' : 'Stopped'}
-        {timer ? <span className="sr-only">, timer running</span> : null}
+        {timerState === 'paused' ? (
+          <span className="flag-paused">
+            <span aria-hidden="true">⏸</span> Paused
+          </span>
+        ) : (
+          stateWord
+        )}
+        {timerState === 'running' ? <span className="sr-only">, timer running</span> : null}
+        {timerState === 'paused' ? <span className="sr-only">, timer paused</span> : null}
       </span>
-      <span className="elapsed mono" aria-live="off">
-        {timer ? formatElapsed(timer.started_at, now) : '00:00:00'}
+      <span className="elapsed mono" role="timer" aria-live="off" aria-label={`Elapsed time ${elapsedText}`}>
+        {elapsedText}
       </span>
       <span className="workitem" title={label}>
         {label}
@@ -64,6 +96,28 @@ export function TimerBar() {
         <kbd>T</kbd>
         {timer ? 'stop' : 'start'}
       </span>
+      {timerState === 'running' ? (
+        <button
+          type="button"
+          className="btn btn-icon"
+          onClick={() => void pauseTimer()}
+          disabled={timerPending}
+          aria-label="Pause timer"
+          title="Pause timer"
+        >
+          <span aria-hidden="true">⏸</span>
+        </button>
+      ) : null}
+      {timerState === 'paused' ? (
+        <button
+          type="button"
+          className="btn"
+          onClick={() => void resumeTimer()}
+          disabled={timerPending}
+        >
+          <span aria-hidden="true">▶</span> Resume
+        </button>
+      ) : null}
       {timer ? (
         <button
           type="button"

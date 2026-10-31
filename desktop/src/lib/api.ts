@@ -194,6 +194,22 @@ export class ApiClient {
     });
   }
 
+  async pauseTimer(): Promise<RunningTimer> {
+    const body = await this.request<{ timer: RunningTimer }>('/api/timer/pause', {
+      method: 'POST',
+      body: JSON.stringify({}),
+    });
+    return body.timer;
+  }
+
+  async resumeTimer(): Promise<RunningTimer> {
+    const body = await this.request<{ timer: RunningTimer }>('/api/timer/resume', {
+      method: 'POST',
+      body: JSON.stringify({}),
+    });
+    return body.timer;
+  }
+
   async stopTimer(): Promise<TimeEntry | null> {
     const body = await this.request<{ entry: TimeEntry }>('/api/timer/stop', {
       method: 'POST',

@@ -17,7 +17,7 @@ import {
   saveSecret,
   writeCacheFile,
 } from '../lib/native';
-import { startOfWeek } from '../lib/format';
+import { isTimerPaused, startOfWeek, timerElapsedSeconds } from '../lib/format';
 import type {
   AuditEntry,
   Budget,
@@ -35,6 +35,7 @@ import type {
   RateScope,
   RunningTimer,
   TimeEntry,
+  TimerState,
   Timesheet,
   WorkItem,
 } from '../lib/types';
@@ -71,6 +72,8 @@ type AppValue = {
   workItems: WorkItem[];
   entries: TimeEntry[];
   timer: RunningTimer | null;
+  /** idle (no timer), running or paused; derived from `timer`. */
+  timerState: TimerState;
   planeConnection: PlaneConnection | null;
   fx: FxRates | null;
   timerPending: boolean;
@@ -83,6 +86,8 @@ type AppValue = {
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
   startTimer: (workItemId: string | null) => Promise<void>;
+  pauseTimer: () => Promise<void>;
+  resumeTimer: () => Promise<void>;
   stopTimer: () => Promise<void>;
   addManualEntry: (input: ManualEntryInput) => Promise<void>;
   addManualEntries: (inputs: ManualEntryInput[]) => Promise<BulkEntryResult>;
@@ -415,6 +420,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         work_item_id: workItemId,
         description: item ? `${item.identifier ?? ''} ${item.name}`.trim() : null,
         started_at: new Date().toISOString(),
+        state: 'running',
+        paused_at: null,
+        paused_seconds: 0,
       };
       setTimer(optimistic);
       setTimerPending(true);
@@ -440,6 +448,73 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [ensureClient, logout, member, workItems],
   );
 
+  const pauseTimer = useCallback(async () => {
+    if (!timer || isTimerPaused(timer) || timerPending) {
+      return;
+    }
+    const previous = timer;
+    setTimer({ ...timer, state: 'paused', paused_at: new Date().toISOString() });
+    if (timerSourceRef.current === 'local') {
+      return;
+    }
+    setTimerPending(true);
+    try {
+      setTimer(await ensureClient().pauseTimer());
+    } catch (pauseError) {
+      setTimer(previous);
+      if (pauseError instanceof NetworkError) {
+        setOnline(false);
+        setNotice('Offline. The timer could not be paused; try again when the server is reachable.');
+      } else if (pauseError instanceof ApiError && pauseError.status === 401) {
+        await logout();
+      } else if (pauseError instanceof ApiError && pauseError.status === 409) {
+        await refresh();
+      } else {
+        setError(pauseError instanceof Error ? pauseError.message : 'could not pause timer');
+      }
+    } finally {
+      setTimerPending(false);
+    }
+  }, [ensureClient, logout, refresh, timer, timerPending]);
+
+  const resumeTimer = useCallback(async () => {
+    if (!timer || !isTimerPaused(timer) || timerPending) {
+      return;
+    }
+    const previous = timer;
+    const pausedFor = Math.max(
+      0,
+      (Date.now() - new Date(timer.paused_at ?? Date.now()).getTime()) / 1000,
+    );
+    setTimer({
+      ...timer,
+      state: 'running',
+      paused_at: null,
+      paused_seconds: (timer.paused_seconds ?? 0) + pausedFor,
+    });
+    if (timerSourceRef.current === 'local') {
+      return;
+    }
+    setTimerPending(true);
+    try {
+      setTimer(await ensureClient().resumeTimer());
+    } catch (resumeError) {
+      setTimer(previous);
+      if (resumeError instanceof NetworkError) {
+        setOnline(false);
+        setNotice('Offline. The timer could not be resumed; try again when the server is reachable.');
+      } else if (resumeError instanceof ApiError && resumeError.status === 401) {
+        await logout();
+      } else if (resumeError instanceof ApiError && resumeError.status === 409) {
+        await refresh();
+      } else {
+        setError(resumeError instanceof Error ? resumeError.message : 'could not resume timer');
+      }
+    } finally {
+      setTimerPending(false);
+    }
+  }, [ensureClient, logout, refresh, timer, timerPending]);
+
   const stopTimer = useCallback(async () => {
     if (!timer) {
       return;
@@ -456,14 +531,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
       await refresh();
     } catch (stopError) {
       if (stopError instanceof NetworkError) {
+        // Paused time is not worked time: end the entry at the pause (or now)
+        // and start it as many active seconds earlier.
+        const endedAtMs =
+          isTimerPaused(finished) && finished.paused_at
+            ? new Date(finished.paused_at).getTime()
+            : Date.now();
+        const activeSeconds = timerElapsedSeconds(finished, endedAtMs);
         const queued: QueuedEntry = {
           id: crypto.randomUUID(),
           createdAt: new Date().toISOString(),
           payload: {
             workItemId: finished.work_item_id,
             description: finished.description,
-            startedAt: finished.started_at,
-            endedAt: new Date().toISOString(),
+            startedAt: new Date(endedAtMs - activeSeconds * 1000).toISOString(),
+            endedAt: new Date(endedAtMs).toISOString(),
           },
         };
         setQueue((current) => [...current, queued]);
@@ -706,6 +788,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return `Synced ${result.projects} projects and ${result.workItems} work items`;
   }, [ensureClient, refresh]);
 
+  const timerState: TimerState = !timer ? 'idle' : isTimerPaused(timer) ? 'paused' : 'running';
+
   const value = useMemo<AppValue>(
     () => ({
       status,
@@ -716,6 +800,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       workItems,
       entries,
       timer,
+      timerState,
       planeConnection,
       fx,
       timerPending,
@@ -728,6 +813,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       logout,
       refresh,
       startTimer,
+      pauseTimer,
+      resumeTimer,
       stopTimer,
       addManualEntry,
       addManualEntries,
@@ -770,6 +857,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       workItems,
       entries,
       timer,
+      timerState,
       planeConnection,
       fx,
       timerPending,
@@ -782,6 +870,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       logout,
       refresh,
       startTimer,
+      pauseTimer,
+      resumeTimer,
       stopTimer,
       addManualEntry,
       addManualEntries,

@@ -8,6 +8,8 @@ import {
   getRunningTimer,
   listEntries,
   listEntryHistory,
+  pauseTimer,
+  resumeTimer,
   startTimer,
   stopTimer,
   updateEntry,
@@ -62,6 +64,28 @@ export function timeRoutes(app: FastifyInstance, deps: { db: Db }): void {
       description: parsed.data.description ?? null,
     });
     return reply.code(201).send({ timer });
+  });
+
+  app.post('/api/timer/pause', { preHandler: anyMember }, async (request, reply) => {
+    const result = await pauseTimer(db, {
+      organisationId: request.member!.organisation_id,
+      memberId: request.member!.id,
+    });
+    if (!result.ok) {
+      return reply.code(409).send({ error: result.error });
+    }
+    return { timer: result.timer };
+  });
+
+  app.post('/api/timer/resume', { preHandler: anyMember }, async (request, reply) => {
+    const result = await resumeTimer(db, {
+      organisationId: request.member!.organisation_id,
+      memberId: request.member!.id,
+    });
+    if (!result.ok) {
+      return reply.code(409).send({ error: result.error });
+    }
+    return { timer: result.timer };
   });
 
   app.post('/api/timer/stop', { preHandler: anyMember }, async (request, reply) => {

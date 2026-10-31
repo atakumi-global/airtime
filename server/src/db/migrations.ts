@@ -273,4 +273,14 @@ export const migrations: Migration[] = [
         CHECK (margin_target_amount IS NULL OR margin_target_amount >= 0);
     `,
   },
+  {
+    id: '009_timer_pause',
+    sql: `
+      ALTER TABLE timers ADD COLUMN IF NOT EXISTS paused_at timestamptz;
+      ALTER TABLE timers ADD COLUMN IF NOT EXISTS paused_seconds double precision
+        NOT NULL DEFAULT 0 CHECK (paused_seconds >= 0);
+      ALTER TABLE timers ADD COLUMN IF NOT EXISTS state text
+        GENERATED ALWAYS AS (CASE WHEN paused_at IS NULL THEN 'running' ELSE 'paused' END) STORED;
+    `,
+  },
 ];

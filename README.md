@@ -72,8 +72,12 @@ automatically on start.
 ## Time tracking
 
 `POST /api/timer/start` starts a timer for the signed-in member; starting a
-second timer stops the first and records it as an entry. `POST /api/timer/stop`
-creates an entry from the running timer. `POST /api/time-entries` back-fills
+second timer stops the first and records it as an entry. `POST /api/timer/pause`
+freezes the timer and `POST /api/timer/resume` continues it; both answer 409
+(`no_timer`, `already_paused` or `not_paused`) when the transition does not
+apply. The timer carries `state` (`running` or `paused`), `paused_at` and
+`paused_seconds`, so a pause survives a restart and paused time is never counted.
+`POST /api/timer/stop` creates an entry from the running or paused timer. `POST /api/time-entries` back-fills
 manually from a `date` and `durationMinutes`, or from explicit `startedAt` and
 `endedAt`.
 
@@ -231,6 +235,8 @@ caller without the role.
 | `POST` | `/api/plane/webhook/:secret` | public (secret path) |
 | `GET` | `/api/timer` | any authenticated member |
 | `POST` | `/api/timer/start` | any authenticated member |
+| `POST` | `/api/timer/pause` | any authenticated member |
+| `POST` | `/api/timer/resume` | any authenticated member |
 | `POST` | `/api/timer/stop` | any authenticated member |
 | `GET` | `/api/time-entries` | any authenticated member (own; managers all) |
 | `POST` | `/api/time-entries` | any authenticated member |

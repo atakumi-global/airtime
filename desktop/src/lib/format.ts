@@ -76,6 +76,36 @@ export function durationError(value: string): string | null {
   return null;
 }
 
+type TimerClock = {
+  started_at: string;
+  state?: 'running' | 'paused';
+  paused_at?: string | null;
+  paused_seconds?: number;
+};
+
+export function isTimerPaused(timer: TimerClock | null | undefined): boolean {
+  return Boolean(timer && timer.state === 'paused' && timer.paused_at);
+}
+
+/** Active seconds on a timer: a paused timer is frozen at the moment it was paused. */
+export function timerElapsedSeconds(timer: TimerClock, now: number): number {
+  const end =
+    isTimerPaused(timer) && timer.paused_at ? new Date(timer.paused_at).getTime() : now;
+  const active = end - new Date(timer.started_at).getTime() - (timer.paused_seconds ?? 0) * 1000;
+  return Math.max(0, Math.floor(active / 1000));
+}
+
+export function formatTimerElapsed(timer: TimerClock, now: number): string {
+  return formatClock(timerElapsedSeconds(timer, now));
+}
+
+function formatClock(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  return [h, m, s].map((part) => String(part).padStart(2, '0')).join(':');
+}
+
 export function formatElapsed(startedAt: string, now: number): string {
   const seconds = Math.max(
     0,

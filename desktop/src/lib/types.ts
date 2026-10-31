@@ -128,7 +128,15 @@ export type RunningTimer = {
   work_item_id: string | null;
   description: string | null;
   started_at: string;
+  /** Absent in caches written before the paused state existed; treated as running. */
+  state?: 'running' | 'paused';
+  /** Set while paused. */
+  paused_at?: string | null;
+  /** Seconds already spent paused before the current pause. */
+  paused_seconds?: number;
 };
+
+export type TimerState = 'idle' | 'running' | 'paused';
 
 export type PlaneConnection = {
   baseUrl: string;
