@@ -2,9 +2,11 @@ import { useCallback, useEffect, useState } from 'react';
 import { useApp } from '../state/AppContext';
 import { Badge, healthBadge } from '../components/ui';
 import { BudgetDialog } from '../components/BudgetDialog';
-import { formatDate, formatDuration, formatMoney } from '../lib/format';
+import { ExpenseDialog } from '../components/ExpenseDialog';
+import { categoryLabel } from '../lib/expenses';
+import { formatDate, formatDateOnly, formatDuration, formatMoney } from '../lib/format';
 import { chartMax, chartText, projectedTotal } from '../lib/chart';
-import type { BudgetSummary, Project, TimeEntry } from '../lib/types';
+import type { BudgetSummary, Expense, Project, TimeEntry } from '../lib/types';
 import type { View } from '../components/Shell';
 
 const CHART = { width: 520, height: 190, left: 40, right: 510, top: 20, base: 150 };
@@ -179,10 +181,13 @@ export function ProjectDetail({
     workItems,
     loadProjectSummary,
     loadProjectEntries,
+    loadProjectExpenses,
     exportCsv,
   } = useApp();
   const [summary, setSummary] = useState<BudgetSummary | null>(null);
   const [entries, setEntries] = useState<TimeEntry[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [expenseDialog, setExpenseDialog] = useState<Expense | 'new' | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
@@ -195,17 +200,20 @@ export function ProjectDetail({
       Promise.all([
         loadProjectSummary(project.id),
         loadProjectEntries(project.id),
+        loadProjectExpenses(project.id),
       ]),
-    [loadProjectEntries, loadProjectSummary, project.id],
+    [loadProjectEntries, loadProjectExpenses, loadProjectSummary, project.id],
   );
 
   const applyDetail = useCallback(
-    ([detail, entryList]: [
+    ([detail, entryList, expenseList]: [
       { project: Project; summary: BudgetSummary },
       TimeEntry[],
+      Expense[],
     ]) => {
       setSummary(detail.summary);
       setEntries(entryList.slice(0, 5));
+      setExpenses(expenseList);
       setError(null);
     },
     [],
@@ -341,7 +349,7 @@ export function ProjectDetail({
               formula="resources at commercial rates"
               accent
             />
-            <Fin label="Cost" value={money(summary.spent)} formula="team at cost levels" />
+            <Fin label="Cost" value={money(summary.spent)} formula="team at cost levels plus expenses" />
             <Fin
               label="Profit"
               value={money(summary.profit)}
@@ -449,6 +457,10 @@ export function ProjectDetail({
                     </span>
                   </div>
                 ) : null}
+                <div className="row-between">
+                  <span className="small muted">Expenses</span>
+                  <span className="mono small">{money(summary.expenses.total)}</span>
+                </div>
                 <hr className="divider" />
                 <div className="row-between">
                   <span className="small strong">Cost</span>
@@ -522,19 +534,92 @@ export function ProjectDetail({
               )}
             </section>
 
-            <section className="card card-pad stack">
-              <div className="row-between">
+            <section className="card" aria-label="Expenses">
+              <div className="card-pad row-between">
                 <h2>Expenses</h2>
-                <Badge tone="warning">planned · AIRTIME-25</Badge>
+                {canManage ? (
+                  <button
+                    type="button"
+                    className="btn btn-sm"
+                    onClick={() => setExpenseDialog('new')}
+                  >
+                    Add expense
+                  </button>
+                ) : (
+                  <Badge>Read-only</Badge>
+                )}
               </div>
-              <p className="muted small">
-                Expenses are not tracked yet. Licences, travel and hardware will
-                count toward Cost, Margin and Profit. Backlog item AIRTIME-25
-                covers it.
-              </p>
+              {expenses.length === 0 ? (
+                <div className="empty">
+                  <p className="small">
+                    No expenses recorded yet. Licences, travel, hardware and
+                    subcontractors count toward Cost, Margin and Profit.
+                  </p>
+                </div>
+              ) : (
+                expenses.map((expense) => {
+                  const foreign =
+                    expense.reporting_currency !== null &&
+                    expense.currency !== expense.reporting_currency;
+                  return (
+                    <div className="entry" key={expense.id}>
+                      <span className="entry-time">
+                        {formatDateOnly(expense.expense_date)}
+                      </span>
+                      <span className="entry-main">
+                        <span className="entry-title">
+                          {categoryLabel(expense.category)}
+                          {expense.note ? ` · ${expense.note}` : ''}
+                        </span>
+                        {foreign ? (
+                          <span className="entry-meta">
+                            {formatMoney(Number(expense.amount), expense.currency)} at{' '}
+                            {Number(expense.fx_rate)}
+                            {expense.fx_date
+                              ? ` on ${formatDateOnly(expense.fx_date)}`
+                              : ''}
+                          </span>
+                        ) : null}
+                      </span>
+                      <span className="entry-amount mono">
+                        {formatMoney(
+                          Number(expense.amount_reporting ?? expense.amount),
+                          expense.reporting_currency ?? expense.currency,
+                        )}
+                      </span>
+                      {canManage ? (
+                        <button
+                          type="button"
+                          className="btn btn-sm"
+                          aria-label={`Edit expense ${categoryLabel(expense.category)} ${expense.expense_date.slice(0, 10)}`}
+                          onClick={() => setExpenseDialog(expense)}
+                        >
+                          Edit
+                        </button>
+                      ) : (
+                        <span />
+                      )}
+                    </div>
+                  );
+                })
+              )}
             </section>
           </div>
         </>
+      ) : null}
+
+      {expenseDialog ? (
+        <ExpenseDialog
+          project={project}
+          expense={expenseDialog === 'new' ? null : expenseDialog}
+          workItems={workItems}
+          defaultCurrency={organisation?.reportingCurrency ?? 'EUR'}
+          onClose={() => setExpenseDialog(null)}
+          onSaved={() => {
+            setExpenseDialog(null);
+            reload();
+          }}
+        />
       ) : null}
 
       {editing ? (

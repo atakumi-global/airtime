@@ -139,6 +139,15 @@ export function formatDate(iso: string): string {
   return `${date.getDate()} ${MONTHS_SHORT[date.getMonth()]}`;
 }
 
+/** A calendar date (YYYY-MM-DD) as "day month", without a time zone shift. */
+export function formatDateOnly(value: string): string {
+  const [year, month, day] = value.slice(0, 10).split('-').map(Number);
+  if (!year || !month || !day) {
+    return value;
+  }
+  return `${day} ${MONTHS_SHORT[month - 1]}`;
+}
+
 export function formatDayHeading(iso: string, today: string): string {
   const date = new Date(iso);
   const value = date.toDateString();

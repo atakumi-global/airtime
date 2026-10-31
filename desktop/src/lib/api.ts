@@ -5,6 +5,9 @@ import type {
   Budget,
   BudgetSummary,
   EntryHistoryEvent,
+  Expense,
+  ExpenseHistoryEvent,
+  ExpenseInput,
   FeedbackEvent,
   FxRates,
   Member,
@@ -257,6 +260,45 @@ export class ApiClient {
   async timeEntryHistory(id: string): Promise<EntryHistoryEvent[]> {
     const body = await this.request<{ history: EntryHistoryEvent[] }>(
       `/api/time-entries/${encodeURIComponent(id)}/history`,
+    );
+    return body.history;
+  }
+
+  async projectExpenses(projectId: string): Promise<Expense[]> {
+    const body = await this.request<{ expenses: Expense[] }>(
+      `/api/projects/${encodeURIComponent(projectId)}/expenses`,
+    );
+    return body.expenses;
+  }
+
+  async createExpense(projectId: string, payload: ExpenseInput): Promise<Expense> {
+    const body = await this.request<{ expense: Expense }>(
+      `/api/projects/${encodeURIComponent(projectId)}/expenses`,
+      { method: 'POST', body: JSON.stringify(payload) },
+    );
+    return body.expense;
+  }
+
+  async updateExpense(
+    id: string,
+    payload: Partial<ExpenseInput>,
+  ): Promise<Expense> {
+    const body = await this.request<{ expense: Expense }>(
+      `/api/expenses/${encodeURIComponent(id)}`,
+      { method: 'PATCH', body: JSON.stringify(payload) },
+    );
+    return body.expense;
+  }
+
+  async deleteExpense(id: string): Promise<void> {
+    await this.request(`/api/expenses/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async expenseHistory(id: string): Promise<ExpenseHistoryEvent[]> {
+    const body = await this.request<{ history: ExpenseHistoryEvent[] }>(
+      `/api/expenses/${encodeURIComponent(id)}/history`,
     );
     return body.history;
   }
