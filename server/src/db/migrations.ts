@@ -283,4 +283,42 @@ export const migrations: Migration[] = [
         GENERATED ALWAYS AS (CASE WHEN paused_at IS NULL THEN 'running' ELSE 'paused' END) STORED;
     `,
   },
+  {
+    id: '010_rate_dates',
+    sql: `
+      ALTER TABLE organisations ADD COLUMN IF NOT EXISTS default_hourly_rate
+        numeric(14, 4) NOT NULL DEFAULT 200 CHECK (default_hourly_rate >= 0);
+
+      DELETE FROM rates WHERE scope = 'client';
+
+      ALTER TABLE rates ADD COLUMN IF NOT EXISTS from_date date;
+      UPDATE rates SET from_date = (created_at AT TIME ZONE 'UTC')::date
+       WHERE from_date IS NULL;
+      ALTER TABLE rates ALTER COLUMN from_date SET NOT NULL;
+
+      DROP INDEX IF EXISTS rates_member_uq;
+      DROP INDEX IF EXISTS rates_project_uq;
+      DROP INDEX IF EXISTS rates_client_uq;
+
+      ALTER TABLE rates DROP CONSTRAINT IF EXISTS rates_scope_check;
+      ALTER TABLE rates DROP COLUMN IF EXISTS client_id;
+      ALTER TABLE rates DROP CONSTRAINT IF EXISTS rates_check;
+
+      ALTER TABLE rates ADD CONSTRAINT rates_scope_check
+        CHECK (scope IN ('member', 'project', 'project_member'));
+      ALTER TABLE rates ADD CONSTRAINT rates_target_check CHECK (
+        (scope = 'member' AND member_id IS NOT NULL AND project_id IS NULL)
+        OR (scope = 'project' AND project_id IS NOT NULL AND member_id IS NULL)
+        OR (scope = 'project_member' AND member_id IS NOT NULL AND project_id IS NOT NULL)
+      );
+
+      CREATE UNIQUE INDEX IF NOT EXISTS rates_member_date_uq
+        ON rates (organisation_id, member_id, from_date) WHERE scope = 'member';
+      CREATE UNIQUE INDEX IF NOT EXISTS rates_project_date_uq
+        ON rates (organisation_id, project_id, from_date) WHERE scope = 'project';
+      CREATE UNIQUE INDEX IF NOT EXISTS rates_project_member_date_uq
+        ON rates (organisation_id, member_id, project_id, from_date)
+        WHERE scope = 'project_member';
+    `,
+  },
 ];

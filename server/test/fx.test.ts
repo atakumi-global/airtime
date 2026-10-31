@@ -124,6 +124,7 @@ test('totals convert to the reporting currency and expose the rate and date', as
       scope: 'project',
       projectId,
       currency: 'GBP',
+      fromDate: '2020-01-01',
       hourlyAmount: 100,
     },
   });
@@ -169,7 +170,7 @@ test('an unreachable provider keeps the last rates and marks them stale', async 
     method: 'PUT',
     url: '/api/rates',
     headers: auth(token),
-    payload: { scope: 'project', projectId, currency: 'GBP', hourlyAmount: 100 },
+    payload: { scope: 'project', projectId, fromDate: '2020-01-01', currency: 'GBP', hourlyAmount: 100 },
   });
   await app.inject({
     method: 'POST',
