@@ -13,6 +13,7 @@ import {
   startTimer,
   stopTimer,
   updateEntry,
+  type TimerRow,
 } from '../services/timeEntries.js';
 import { getTimesheet } from '../services/costing.js';
 import { AccessError, canReadProject, viewerOf } from '../services/access.js';
@@ -76,6 +77,13 @@ export function timeRoutes(
     }
   };
 
+  // Timer responses carry the workspace of the timer's project, like a read does.
+  const withWorkspace = async (
+    request: FastifyRequest,
+    timer: TimerRow,
+  ): Promise<TimerRow> =>
+    (await getRunningTimer(db, request.member!.organisation_id, request.member!.id)) ?? timer;
+
   app.get('/api/timer', { preHandler: anyMember }, async (request) => {
     const timer = await getRunningTimer(
       db,
@@ -99,7 +107,7 @@ export function timeRoutes(
         description: parsed.data.description ?? null,
       }),
     );
-    return reply.code(201).send({ timer });
+    return reply.code(201).send({ timer: await withWorkspace(request, timer) });
   });
 
   app.post('/api/timer/pause', { preHandler: anyMember }, async (request, reply) => {
@@ -110,7 +118,7 @@ export function timeRoutes(
     if (!result.ok) {
       return reply.code(409).send({ error: result.error });
     }
-    return { timer: result.timer };
+    return { timer: await withWorkspace(request, result.timer) };
   });
 
   app.post('/api/timer/resume', { preHandler: anyMember }, async (request, reply) => {
@@ -121,7 +129,7 @@ export function timeRoutes(
     if (!result.ok) {
       return reply.code(409).send({ error: result.error });
     }
-    return { timer: result.timer };
+    return { timer: await withWorkspace(request, result.timer) };
   });
 
   app.post('/api/timer/stop', { preHandler: anyMember }, async (request, reply) => {

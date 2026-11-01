@@ -279,9 +279,9 @@ test('the export includes expenses with category and cost', async () => {
   assert.equal(response.statusCode, 200);
   const lines = response.body.replace(/^\uFEFF/, '').split('\r\n').filter(Boolean);
   assert.equal(lines.length, 3);
-  assert.ok(lines[0]!.endsWith(',type,category'));
+  assert.ok(lines[0]!.endsWith(',type,category,workspace'));
   const gbp = lines.find((line) => line.includes('hardware'))!;
-  assert.ok(gbp.startsWith(`Project a,Manager,${today},,,,'=cmd(),expense,,GBP,100,150,USD,1.5,${today},false,expense,hardware`));
+  assert.ok(gbp.startsWith(`Project a,Manager,${today},,,,'=cmd(),expense,,GBP,100,150,USD,1.5,${today},false,expense,hardware,`));
   const usd = lines.find((line) => line.includes('travel'))!;
   assert.ok(usd.includes(',expense,,USD,40,40,USD,1,'));
   assert.ok(!response.body.includes('Elsewhere'));
