@@ -333,6 +333,9 @@ export const migrations: Migration[] = [
       ALTER TABLE rates DROP COLUMN IF EXISTS client_id;
       ALTER TABLE rates DROP CONSTRAINT IF EXISTS rates_check;
 
+      -- Re-runnable: this change shipped once as '010_rate_dates' on a branch and
+      -- databases that applied it already hold the new constraints and indexes.
+      ALTER TABLE rates DROP CONSTRAINT IF EXISTS rates_target_check;
       ALTER TABLE rates ADD CONSTRAINT rates_scope_check
         CHECK (scope IN ('member', 'project', 'project_member'));
       ALTER TABLE rates ADD CONSTRAINT rates_target_check CHECK (
