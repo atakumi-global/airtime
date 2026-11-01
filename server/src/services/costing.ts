@@ -16,23 +16,31 @@ import {
   type ExpenseRow,
 } from './expenses.js';
 
-export type RateIndex = {
-  member: Map<string, RateLookup>;
-  project: Map<string, RateLookup>;
-  client: Map<string, RateLookup>;
-};
-
 export type RateLookup = { currency: string; hourlyAmount: number };
 
-export type RateScope = 'member' | 'project' | 'client';
+/** A rate that applies to entries on or after `fromDate` (YYYY-MM-DD, UTC). */
+export type DatedRate = { fromDate: string; rate: RateLookup };
+
+export type RateIndex = {
+  member: Map<string, DatedRate[]>;
+  project: Map<string, DatedRate[]>;
+  projectMember: Map<string, DatedRate[]>;
+  defaultRate: RateLookup;
+};
+
+export type RateScope = 'member' | 'project' | 'project_member' | 'default';
 
 export type ResolvedRate = { scope: RateScope; rate: RateLookup };
 
+/** The organisation default rate is always in NZD. */
+export const DEFAULT_RATE_CURRENCY = 'NZD';
+export const DEFAULT_HOURLY_RATE = 200;
+
 type RateRowLite = {
-  scope: 'member' | 'project' | 'client';
+  scope: 'member' | 'project' | 'project_member';
   member_id: string | null;
   project_id: string | null;
-  client_id: string | null;
+  from_date: string;
   currency: string;
   hourly_amount: string;
 };
@@ -45,75 +53,135 @@ export type CostedEntry = {
   scope: RateScope | null;
 };
 
+export function projectMemberKey(memberId: string, projectId: string): string {
+  return `${memberId}:${projectId}`;
+}
+
+function addDated(
+  map: Map<string, DatedRate[]>,
+  key: string,
+  dated: DatedRate,
+): void {
+  const list = map.get(key);
+  if (list) {
+    list.push(dated);
+  } else {
+    map.set(key, [dated]);
+  }
+}
+
 export async function buildRateIndex(db: Db, organisationId: string): Promise<RateIndex> {
   const rows = await db.query<RateRowLite>(
-    'SELECT scope, member_id, project_id, client_id, currency, hourly_amount FROM rates WHERE organisation_id = $1',
+    `SELECT scope, member_id, project_id,
+            to_char(from_date, 'YYYY-MM-DD') AS from_date, currency, hourly_amount
+       FROM rates
+      WHERE organisation_id = $1
+      ORDER BY from_date ASC`,
+    [organisationId],
+  );
+  const organisations = await db.query<{ default_hourly_rate: string }>(
+    'SELECT default_hourly_rate FROM organisations WHERE id = $1',
     [organisationId],
   );
   const index: RateIndex = {
     member: new Map(),
     project: new Map(),
-    client: new Map(),
+    projectMember: new Map(),
+    defaultRate: {
+      currency: DEFAULT_RATE_CURRENCY,
+      hourlyAmount: organisations[0]
+        ? Number(organisations[0].default_hourly_rate)
+        : DEFAULT_HOURLY_RATE,
+    },
   };
   for (const row of rows) {
-    const lookup: RateLookup = {
-      currency: row.currency,
-      hourlyAmount: Number(row.hourly_amount),
+    const dated: DatedRate = {
+      fromDate: row.from_date,
+      rate: { currency: row.currency, hourlyAmount: Number(row.hourly_amount) },
     };
     if (row.scope === 'member' && row.member_id) {
-      index.member.set(row.member_id, lookup);
+      addDated(index.member, row.member_id, dated);
     } else if (row.scope === 'project' && row.project_id) {
-      index.project.set(row.project_id, lookup);
-    } else if (row.scope === 'client' && row.client_id) {
-      index.client.set(row.client_id, lookup);
+      addDated(index.project, row.project_id, dated);
+    } else if (row.scope === 'project_member' && row.member_id && row.project_id) {
+      addDated(
+        index.projectMember,
+        projectMemberKey(row.member_id, row.project_id),
+        dated,
+      );
     }
   }
   return index;
 }
 
+/** The UTC calendar date (YYYY-MM-DD) of an entry's start. */
+export function entryDate(startedAt: Date | string): string {
+  return new Date(startedAt).toISOString().slice(0, 10);
+}
+
+/**
+ * The rate with the latest `fromDate` on or before `date`, or null when every rate
+ * for the target starts later. `rates` is sorted by `fromDate` ascending; the lookup
+ * is a binary search.
+ */
+export function effectiveRate(
+  rates: DatedRate[] | undefined,
+  date: string,
+): RateLookup | null {
+  if (!rates || rates.length === 0) {
+    return null;
+  }
+  let low = 0;
+  let high = rates.length - 1;
+  let found = -1;
+  while (low <= high) {
+    const mid = (low + high) >> 1;
+    if (rates[mid]!.fromDate <= date) {
+      found = mid;
+      low = mid + 1;
+    } else {
+      high = mid - 1;
+    }
+  }
+  return found === -1 ? null : rates[found]!.rate;
+}
+
+/**
+ * Precedence: project + member, then project, then member, then the organisation
+ * default. A level with no rate effective on the entry's date falls through to the
+ * next one.
+ */
 export function resolveRate(
   index: RateIndex,
-  entry: Pick<EntryRow, 'member_id' | 'project_id'>,
-  projectClientId: string | null | undefined,
-): ResolvedRate | null {
-  const memberRate = index.member.get(entry.member_id);
-  if (memberRate) {
-    return { scope: 'member', rate: memberRate };
-  }
+  entry: Pick<EntryRow, 'member_id' | 'project_id' | 'started_at'>,
+): ResolvedRate {
+  const date = entryDate(entry.started_at);
   if (entry.project_id) {
-    const projectRate = index.project.get(entry.project_id);
+    const projectMemberRate = effectiveRate(
+      index.projectMember.get(projectMemberKey(entry.member_id, entry.project_id)),
+      date,
+    );
+    if (projectMemberRate) {
+      return { scope: 'project_member', rate: projectMemberRate };
+    }
+    const projectRate = effectiveRate(index.project.get(entry.project_id), date);
     if (projectRate) {
       return { scope: 'project', rate: projectRate };
     }
   }
-  if (projectClientId) {
-    const clientRate = index.client.get(projectClientId);
-    if (clientRate) {
-      return { scope: 'client', rate: clientRate };
-    }
+  const memberRate = effectiveRate(index.member.get(entry.member_id), date);
+  if (memberRate) {
+    return { scope: 'member', rate: memberRate };
   }
-  return null;
+  return { scope: 'default', rate: index.defaultRate };
 }
 
 export function round4(value: number): number {
   return Math.round(value * 10000) / 10000;
 }
 
-export function costEntry(
-  index: RateIndex,
-  entry: EntryRow,
-  projectClientId: string | null | undefined,
-): CostedEntry {
-  const resolved = resolveRate(index, entry, projectClientId);
-  if (!resolved) {
-    return {
-      cost: null,
-      currency: null,
-      rateApplied: null,
-      uncosted: true,
-      scope: null,
-    };
-  }
+export function costEntry(index: RateIndex, entry: EntryRow): CostedEntry {
+  const resolved = resolveRate(index, entry);
   const cost = round4(
     (resolved.rate.hourlyAmount * entry.billable_minutes) / 60,
   );
@@ -160,24 +228,6 @@ export async function getTimesheet(
   const entries = await listEntries(db, organisationId, viewer, filter);
   const index = await buildRateIndex(db, organisationId);
 
-  const clientByProject = new Map<string, string | null>();
-  const projectIds = [
-    ...new Set(
-      entries
-        .map((entry) => entry.project_id)
-        .filter((projectId): projectId is string => projectId !== null),
-    ),
-  ];
-  if (projectIds.length > 0) {
-    const projectRows = await db.query<{ id: string; client_id: string | null }>(
-      'SELECT id, client_id FROM projects WHERE organisation_id = $1 AND id = ANY($2::uuid[])',
-      [organisationId, projectIds],
-    );
-    for (const row of projectRows) {
-      clientByProject.set(row.id, row.client_id);
-    }
-  }
-
   const organisation = await getPrimaryOrganisation(db);
   const reporting = (organisation?.reporting_currency ?? 'USD').toUpperCase();
   const snapshot = await getLatestRates(db);
@@ -197,11 +247,7 @@ export async function getTimesheet(
   for (const entry of entries) {
     totalMinutes += entry.duration_minutes;
     billableMinutes += entry.billable_minutes;
-    const costed = costEntry(
-      index,
-      entry,
-      entry.project_id ? clientByProject.get(entry.project_id) ?? null : null,
-    );
+    const costed = costEntry(index, entry);
     costedEntries.push({
       ...entry,
       cost: costed.cost,
@@ -283,7 +329,7 @@ export async function loadExpensesForProject(
 export async function getProjectBudgetSummary(
   db: Db,
   organisationId: string,
-  project: { id: string; client_id: string | null; target_date: Date | string | null },
+  project: { id: string; target_date: Date | string | null },
   fallbackHorizonDays: number,
 ): Promise<BudgetSummary> {
   const budgetRows = await db.query<BudgetFinancials>(
@@ -301,7 +347,6 @@ export async function getProjectBudgetSummary(
     budgetRows[0] ?? null,
     entries,
     index,
-    project.client_id,
     horizonForProject(project.target_date, fallbackHorizonDays),
     {
       reportingCurrency: organisation?.reporting_currency ?? 'USD',
@@ -318,7 +363,6 @@ export async function getProjectSummaries(
   budgets: Map<string, BudgetFinancials>;
   entriesByProject: Map<string, EntryRow[]>;
   expensesByProject: Map<string, ExpenseRow[]>;
-  clientByProject: Map<string, string | null>;
   targetDateByProject: Map<string, Date | string | null>;
   index: RateIndex;
   fx: FxContext;
@@ -369,18 +413,14 @@ export async function getProjectSummaries(
       expensesByProject.set(expense.project_id, [expense]);
     }
   }
-
-  const clientByProject = new Map<string, string | null>();
   const targetDateByProject = new Map<string, Date | string | null>();
   const projectRows = await db.query<{
     id: string;
-    client_id: string | null;
     target_date: Date | string | null;
-  }>('SELECT id, client_id, target_date FROM projects WHERE organisation_id = $1', [
+  }>('SELECT id, target_date FROM projects WHERE organisation_id = $1', [
     organisationId,
   ]);
   for (const row of projectRows) {
-    clientByProject.set(row.id, row.client_id);
     targetDateByProject.set(row.id, row.target_date);
   }
 
@@ -391,7 +431,6 @@ export async function getProjectSummaries(
     budgets,
     entriesByProject,
     expensesByProject,
-    clientByProject,
     targetDateByProject,
     index,
     fx: {
@@ -410,7 +449,6 @@ export function summariseProject(
     data.budgets.get(projectId) ?? null,
     data.entriesByProject.get(projectId) ?? [],
     data.index,
-    data.clientByProject.get(projectId) ?? null,
     horizonForProject(
       data.targetDateByProject.get(projectId) ?? null,
       fallbackHorizonDays,
@@ -483,7 +521,12 @@ export type BudgetSummary = {
   marginTargetAmount: number | null;
   marginTargetMet: boolean | null;
   billableMinutes: number;
-  costByScope: { member: number; project: number; client: number };
+  costByScope: {
+    member: number;
+    project: number;
+    projectMember: number;
+    default: number;
+  };
   weeklyCost: Array<{ weekStart: string; cost: number }>;
   currency: string;
   currencyTotals: Record<string, number>;
@@ -603,7 +646,6 @@ export function summarise(
   budget: BudgetFinancials | null,
   entries: EntryRow[],
   index: RateIndex,
-  projectClientId: string | null | undefined,
   horizon: ProjectionHorizon,
   fx: FxContext,
   expenseRows: ExpenseRow[] = [],
@@ -618,7 +660,7 @@ export function summarise(
   let fxStale = false;
   const currencyTotals: Record<string, number> = {};
   const conversions: Record<string, ConversionInfo> = {};
-  const costByScope = { member: 0, project: 0, client: 0 };
+  const costByScope = { member: 0, project: 0, projectMember: 0, default: 0 };
   const weekly = new Map<string, number>();
   let earliest: number | null = null;
 
@@ -626,7 +668,7 @@ export function summarise(
     const started = new Date(entry.started_at).getTime();
     earliest = earliest === null ? started : Math.min(earliest, started);
     billableMinutes += entry.billable_minutes;
-    const costed = costEntry(index, entry, projectClientId);
+    const costed = costEntry(index, entry);
     if (costed.cost === null || costed.currency === null) {
       uncostedEntries += 1;
       uncostedMinutes += entry.billable_minutes;
@@ -648,9 +690,8 @@ export function summarise(
     }
     spent += conversion.amount;
     if (costed.scope) {
-      costByScope[costed.scope] = round4(
-        costByScope[costed.scope] + conversion.amount,
-      );
+      const key = costed.scope === 'project_member' ? 'projectMember' : costed.scope;
+      costByScope[key] = round4(costByScope[key] + conversion.amount);
     }
     const week = isoWeekStart(new Date(entry.started_at));
     weekly.set(week, round4((weekly.get(week) ?? 0) + conversion.amount));

@@ -124,7 +124,7 @@ type AppValue = {
     scope: RateScope;
     memberId?: string | null;
     projectId?: string | null;
-    clientId?: string | null;
+    fromDate: string;
     currency: string;
     hourlyAmount: number;
   }) => Promise<void>;
@@ -139,6 +139,7 @@ type AppValue = {
   setMemberRole: (id: string, role: Member['role']) => Promise<void>;
   removeMember: (id: string) => Promise<void>;
   updateReportingCurrency: (currency: string) => Promise<void>;
+  updateDefaultHourlyRate: (rate: number) => Promise<void>;
   refreshFx: () => Promise<void>;
   loadAudit: (limit?: number) => Promise<AuditEntry[]>;
   loadFeedback: (limit?: number) => Promise<FeedbackEvent[]>;
@@ -781,6 +782,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [ensureClient, refresh],
   );
 
+  const updateDefaultHourlyRate = useCallback(
+    async (rate: number) => {
+      const updated = await ensureClient().updateDefaultHourlyRate(rate);
+      setOrganisation(updated);
+      await refresh();
+    },
+    [ensureClient, refresh],
+  );
+
   const refreshFx = useCallback(async () => {
     const rates = await ensureClient().refreshFx();
     setFx(rates);
@@ -890,6 +900,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setMemberRole,
       removeMember,
       updateReportingCurrency,
+      updateDefaultHourlyRate,
       refreshFx,
       loadAudit,
       loadFeedback,
@@ -952,6 +963,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setMemberRole,
       removeMember,
       updateReportingCurrency,
+      updateDefaultHourlyRate,
       refreshFx,
       loadAudit,
       loadFeedback,

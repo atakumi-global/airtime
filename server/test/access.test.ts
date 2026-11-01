@@ -215,7 +215,13 @@ test('a hidden project answers 404 on summary, budget and expenses and cannot be
     method: 'PUT',
     url: '/api/rates',
     headers: auth(managerToken),
-    payload: { scope: 'project', projectId: web, currency: 'USD', hourlyAmount: 50 },
+    payload: {
+      scope: 'project',
+      projectId: web,
+      currency: 'USD',
+      hourlyAmount: 50,
+      fromDate: '2026-01-01',
+    },
   });
   assert.equal(rate.statusCode, 404);
 
@@ -253,8 +259,8 @@ test('time entries, timesheet, rates and CSV export are filtered by project acce
   const db = getDb();
   for (const [scope, projectId] of [['project', web], ['project', app_]] as const) {
     await db.query(
-      `INSERT INTO rates (id, organisation_id, scope, project_id, currency, hourly_amount)
-       VALUES ($1, $2, $3, $4, 'USD', 80)`,
+      `INSERT INTO rates (id, organisation_id, scope, project_id, currency, hourly_amount, from_date)
+       VALUES ($1, $2, $3, $4, 'USD', 80, '2026-01-01')`,
       [randomUUID(), seeded.organisationId, scope, projectId],
     );
   }

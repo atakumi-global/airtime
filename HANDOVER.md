@@ -92,7 +92,7 @@ Sign in as the bootstrap administrator from `.env` and check:
   `1d` (8h), `1w` (40h), `0.5d`, `+15m`; parsed value echoed; save blocked while
   invalid.
 - **Projects** — set or edit a budget per project; budget health, burn and flags.
-- **Budgets** — set member, project or client rates.
+- **Rates** — dated member, project and project + member rates plus an administrator-set default hourly rate (AIRTIME-89); client rates are removed.
 - **Reports** — filter by date/project/member and export CSV.
 - **Admin** — add/role/remove members, read the audit log, review and export the
   anonymised feedback dataset.
@@ -148,6 +148,20 @@ AIRTIME-1, 3, 4, 5, 7, 8, 9, 10, 16, 17–24, 26, 31, 32, 33, 53, 55.
   tray and the running timer keeps counting in the tray tooltip and menu;
   Quit Airtime exits; title bar drags, double-click maximises, controls work.
   AIRTIME-36 and 37 add modules beside `tray/`.
+
+- **AIRTIME-36** desktop notifications with actions — desktop only.
+  `desktop/src-tauri/src/notify/` (`model.rs` pure, `mod.rs` Windows toast glue
+  on `tauri-winrt-notification`, new Windows-only dependency),
+  `NotificationBridge` + `lib/notifications.ts` on the web side. Success "Entry
+  saved" (View), warning "Margin below target" (Open), error "Timer stopped
+  unexpectedly" (Restart). Withheld while the window is in view and under Focus
+  Assist / full-screen; no animation of its own (reduced motion follows the
+  Windows setting). Details in `desktop/README.md`. Compiles for Windows and the
+  Rust model has 14 unit tests (standalone harness); not run on Windows. Manual
+  pass: stop a timer with the window minimised and see "Entry saved"; turn on
+  Focus Assist and confirm nothing appears; stop the timer server-side and see
+  "Timer stopped unexpectedly" with Restart; check a release build shows the
+  Airtime name and icon.
 
 - **AIRTIME-37** shortcut help surface and remaining shortcuts — desktop only.
   `lib/shortcuts.ts` holds the map (Ctrl+Alt+T timer, Ctrl+Alt+B back-fill,

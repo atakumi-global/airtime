@@ -40,6 +40,7 @@ export const ORGANISATION: Organisation = {
   id: 'org-1',
   name: 'Example Org',
   reportingCurrency: 'EUR',
+  defaultHourlyRate: 200,
 };
 
 export const FX: FxRates = {
@@ -98,7 +99,7 @@ export function summary(overrides: Partial<BudgetSummary> = {}): BudgetSummary {
     marginTargetAmount: 500,
     marginTargetMet: true,
     billableMinutes: 400,
-    costByScope: { member: 0, project: 400, client: 0 },
+    costByScope: { member: 0, project: 400, projectMember: 0, default: 0 },
     weeklyCost: [],
     currency: 'EUR',
     currencyTotals: { EUR: 400 },

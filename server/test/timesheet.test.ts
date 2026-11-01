@@ -90,6 +90,7 @@ test('range totals include only the period and cost each entry', async () => {
     scope: 'project',
     projectId,
     currency: 'USD',
+    fromDate: '2020-01-01',
     hourlyAmount: 75,
   });
 
@@ -124,10 +125,11 @@ test('range totals include only the period and cost each entry', async () => {
   assert.equal(result.entries[0].cost_currency, 'USD');
 });
 
-test('uncosted entries are counted separately and left out of the cost', async () => {
+test('time with no specific rate is costed at the default rate, so nothing is uncosted', async () => {
   const { organisationId, member } = await seed();
   await createProject(organisationId);
   const memberToken = await login(app, member.email, member.password);
+  await getDb().query("UPDATE organisations SET reporting_currency = 'NZD'");
 
   await addEntryAt(
     memberToken,
@@ -140,13 +142,14 @@ test('uncosted entries are counted separately and left out of the cost', async (
     'from=2026-09-21T00:00:00.000Z&to=2026-09-28T00:00:00.000Z',
   );
 
-  assert.equal(result.totals.cost, 0);
-  assert.deepEqual(result.totals.uncosted, { entries: 1, minutes: 60 });
-  assert.equal(result.entries[0].cost, null);
-  assert.equal(result.entries[0].cost_uncosted, true);
+  assert.equal(result.totals.cost, 200);
+  assert.deepEqual(result.totals.uncosted, { entries: 0, minutes: 0 });
+  assert.equal(result.entries[0].cost, 200);
+  assert.equal(result.entries[0].cost_currency, 'NZD');
+  assert.equal(result.entries[0].cost_uncosted, false);
 });
 
-test('mixed rated and unrated entries split the billable minutes', async () => {
+test('a project rate and the default rate split the cost by rate level', async () => {
   const { organisationId, admin, member } = await seed();
   const ratedProjectId = await createProject(organisationId);
   const db = getDb();
@@ -163,12 +166,18 @@ test('mixed rated and unrated entries split the billable minutes', async () => {
      VALUES ($1, $2, $3, 'wi-2', 'INT-1', 'Unrated work', true)`,
     [randomUUID(), organisationId, unratedProjectId],
   );
+  // 1 NZD = 0.5 USD, so the 30 minutes at the 200 NZD default cost 50 USD.
+  await db.query(
+    `INSERT INTO fx_rates (currency, rate_date, eur_rate)
+     VALUES ('NZD', CURRENT_DATE, 2), ('USD', CURRENT_DATE, 1)`,
+  );
   const adminToken = await login(app, admin.email, admin.password);
   const memberToken = await login(app, member.email, member.password);
   await setRate(adminToken, {
     scope: 'project',
     projectId: ratedProjectId,
     currency: 'USD',
+    fromDate: '2020-01-01',
     hourlyAmount: 60,
   });
 
@@ -183,7 +192,7 @@ test('mixed rated and unrated entries split the billable minutes', async () => {
     '2026-09-22T09:00:00.000Z',
     '2026-09-22T09:05:00.000Z',
   );
-  // Unrated: 30m on a project with no member, project or client rate.
+  // Default rate: 30m on a project with no project or member rate (200 NZD an hour).
   const unrated = await app.inject({
     method: 'POST',
     url: '/api/time-entries',
@@ -204,10 +213,11 @@ test('mixed rated and unrated entries split the billable minutes', async () => {
   assert.equal(result.totals.entryCount, 3);
   assert.equal(result.totals.totalMinutes, 95);
   assert.equal(result.totals.billableMinutes, 100);
-  assert.deepEqual(result.totals.uncosted, { entries: 1, minutes: 30 });
-  assert.equal(result.totals.cost, 70);
+  assert.deepEqual(result.totals.uncosted, { entries: 0, minutes: 0 });
+  assert.equal(result.totals.cost, 120);
+  assert.deepEqual(result.totals.currencyTotals, { USD: 70, NZD: 100 });
   const flags = result.entries.map((entry) => entry.cost_uncosted);
-  assert.equal(flags.filter(Boolean).length, 1);
+  assert.equal(flags.filter(Boolean).length, 0);
 });
 
 test('a member sees their own entries and a manager can name a member', async () => {

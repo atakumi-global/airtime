@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react';
+import { cloneElement, isValidElement, useId } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 import type { BudgetSummary } from '../lib/types';
 
 export function Badge({
@@ -82,11 +83,28 @@ export function Field({
   children: ReactNode;
   hint?: string;
 }) {
+  const generated = useId();
+  // The label is tied to its control with htmlFor/id and the hint with
+  // aria-describedby, so assistive technology announces both.
+  const control = isValidElement<{ id?: string; 'aria-describedby'?: string }>(children)
+    ? (children as ReactElement<{ id?: string; 'aria-describedby'?: string }>)
+    : null;
+  const controlId = control?.props.id ?? generated;
+  const hintId = `${generated}-hint`;
   return (
     <div className="field">
-      <label>{label}</label>
-      {children}
-      {hint ? <span className="muted small">{hint}</span> : null}
+      <label htmlFor={controlId}>{label}</label>
+      {control
+        ? cloneElement(control, {
+            id: controlId,
+            ...(hint ? { 'aria-describedby': hintId } : {}),
+          })
+        : children}
+      {hint ? (
+        <span className="muted small" id={hintId}>
+          {hint}
+        </span>
+      ) : null}
     </div>
   );
 }

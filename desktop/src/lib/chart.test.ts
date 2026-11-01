@@ -26,7 +26,7 @@ function summary(overrides: Partial<BudgetSummary> = {}): BudgetSummary {
     marginTargetAmount: 500,
     marginTargetMet: true,
     billableMinutes: 240,
-    costByScope: { member: 400, project: 0, client: 0 },
+    costByScope: { member: 400, project: 0, projectMember: 0, default: 0 },
     weeklyCost: [
       { weekStart: '2026-09-14', cost: 250 },
       { weekStart: '2026-09-21', cost: 150 },

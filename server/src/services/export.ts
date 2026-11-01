@@ -17,7 +17,6 @@ type ExportRow = EntryRow & {
   member_name: string;
   project_name: string | null;
   project_identifier: string | null;
-  project_client_id: string | null;
   work_item_identifier: string | null;
   work_item_name: string | null;
 };
@@ -67,7 +66,6 @@ export async function buildTimeEntriesCsv(
             m.display_name AS member_name,
             p.name AS project_name,
             p.identifier AS project_identifier,
-            p.client_id AS project_client_id,
             w.identifier AS work_item_identifier,
             w.name AS work_item_name
        FROM time_entries e
@@ -115,7 +113,7 @@ export async function buildTimeEntriesCsv(
 
   const lines = [header.join(',')];
   for (const row of rows) {
-    const costed = costEntry(index, row, row.project_client_id);
+    const costed = costEntry(index, row);
     let costReporting: number | '' = '';
     let fxRate: number | '' = '';
     let fxDate = '';
