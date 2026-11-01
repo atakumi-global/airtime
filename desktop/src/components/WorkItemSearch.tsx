@@ -8,7 +8,15 @@ import { ModalDialog } from './ModalDialog';
  * Search work items (Ctrl+K): a combobox with arrow-key selection. Enter starts the
  * timer on the highlighted item, Escape closes.
  */
-export function WorkItemSearch({ onClose }: { onClose: () => void }) {
+export function WorkItemSearch({
+  onClose,
+  label = 'Search work items',
+  title = 'Search work items',
+}: {
+  onClose: () => void;
+  label?: string;
+  title?: string;
+}) {
   const { workItems, timer, startTimer } = useApp();
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);
@@ -56,8 +64,8 @@ export function WorkItemSearch({ onClose }: { onClose: () => void }) {
 
   return (
     <ModalDialog
-      label="Search work items"
-      title="Search work items"
+      label={label}
+      title={title}
       onClose={onClose}
       initialFocus="input"
     >

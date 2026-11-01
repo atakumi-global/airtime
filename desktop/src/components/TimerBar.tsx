@@ -6,6 +6,7 @@ import { workItemWorkspace } from '../lib/workspaces';
 import { useShortcut, useShortcuts } from '../state/ShortcutsContext';
 import { shortcutAria, ShortcutHint } from './KeyCaps';
 import { Badge } from './ui';
+import { WorkItemSearch } from './WorkItemSearch';
 
 export function TimerBar() {
   const {
@@ -13,7 +14,6 @@ export function TimerBar() {
     timerState,
     timerPending,
     workItems: allWorkItems,
-    startTimer,
     pauseTimer,
     resumeTimer,
     stopTimer,
@@ -23,6 +23,8 @@ export function TimerBar() {
     projects,
   } = useApp();
   const [now, setNow] = useState(() => Date.now());
+  // Starting asks which task to track; the timer never picks one by itself.
+  const [choosing, setChoosing] = useState(false);
   // A running timer may sit on a history-only item; only new starts are limited.
   const workItems = enterable(allWorkItems);
 
@@ -58,8 +60,7 @@ export function TimerBar() {
       if (timer) {
         void stopTimer();
       } else {
-        const first = workItems[0];
-        void startTimer(first?.plane_work_item_id ?? null);
+        setChoosing(true);
       }
     },
     { whenModalOpen: true },
@@ -143,18 +144,26 @@ export function TimerBar() {
         <button
           type="button"
           className="btn btn-primary"
-          onClick={() => void startTimer(workItems[0]?.plane_work_item_id ?? null)}
+          onClick={() => setChoosing(true)}
+          aria-haspopup="dialog"
           disabled={timerPending || !member}
           {...shortcutAria(bindings, 'timer', 'shortcut-timer-hint')}
           title={
             workItems.length === 0
               ? 'No work items yet. Connect Plane in Settings.'
-              : `Start on ${workItems[0]?.identifier ?? workItems[0]?.name ?? ''}`
+              : 'Choose a task and start the timer'
           }
         >
           Start timer
         </button>
       )}
+      {choosing && !timer ? (
+        <WorkItemSearch
+          onClose={() => setChoosing(false)}
+          label="Choose a task to start"
+          title="Choose a task to start"
+        />
+      ) : null}
     </footer>
   );
 }

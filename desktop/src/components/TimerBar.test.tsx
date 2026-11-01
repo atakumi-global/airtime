@@ -18,12 +18,43 @@ describe('TimerBar', () => {
     expect(screen.queryByRole('button', { name: /Stop & save/ })).toBeNull();
   });
 
-  it('starts a timer on the first work item and then offers pause and stop', async () => {
+  it('asks which task to track and starts the timer on the chosen one', async () => {
+    const server = new FakeServer();
+    server.on('POST /api/timer/start', () => ({ timer: runningTimer({ work_item_id: 'plane-wi-2' }) }));
+    await renderReady(<TimerBar />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Start timer/ }));
+    expect(screen.getByRole('dialog', { name: 'Choose a task to start' })).toBeTruthy();
+    expect(server.callsTo('POST /api/timer/start')).toHaveLength(0);
+
+    fireEvent.click(screen.getByRole('option', { name: /WEB-2/ }));
+
+    await waitFor(() => expect(server.callsTo('POST /api/timer/start')).toHaveLength(1));
+    expect(server.callsTo('POST /api/timer/start')[0]?.body).toEqual({
+      workItemId: 'plane-wi-2',
+      description: null,
+    });
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('starts nothing when the task choice is dismissed', async () => {
+    const server = new FakeServer();
+    await renderReady(<TimerBar />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Start timer/ }));
+    fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Escape' });
+
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(server.callsTo('POST /api/timer/start')).toHaveLength(0);
+  });
+
+  it('starts a timer on the chosen work item and then offers pause and stop', async () => {
     const server = new FakeServer();
     server.on('POST /api/timer/start', () => ({ timer: runningTimer() }));
     await renderReady(<TimerBar />);
 
     fireEvent.click(screen.getByRole('button', { name: /Start timer/ }));
+    fireEvent.click(screen.getByRole('option', { name: /WEB-1/ }));
 
     await waitFor(() =>
       expect(screen.getByRole('region', { name: /^Timer/ }).getAttribute('data-timer-state')).toBe('running'),
@@ -105,13 +136,15 @@ describe('TimerBar', () => {
     await renderReady(<TimerBar />);
 
     fireEvent.click(screen.getByRole('button', { name: /Start timer/ }));
+    fireEvent.click(screen.getByRole('option', { name: /WEB-1/ }));
 
+    await waitFor(() => expect(server.callsTo('POST /api/timer/start')).toHaveLength(1));
     await waitFor(() =>
       expect(screen.getByRole('region', { name: /^Timer/ }).getAttribute('data-timer-state')).toBe('idle'),
     );
   });
 
-  it('toggles the timer with Ctrl+Alt+T', async () => {
+  it('opens the task choice with Ctrl+Alt+T instead of starting a task by itself', async () => {
     const server = new FakeServer();
     server.on('POST /api/timer/start', () => ({ timer: runningTimer() }));
     await renderReady(<TimerBar />);
@@ -120,7 +153,21 @@ describe('TimerBar', () => {
       fireEvent.keyDown(window, { key: 't', ctrlKey: true, altKey: true });
     });
 
-    await waitFor(() => expect(server.callsTo('POST /api/timer/start')).toHaveLength(1));
+    expect(screen.getByRole('dialog', { name: 'Choose a task to start' })).toBeTruthy();
+    expect(server.callsTo('POST /api/timer/start')).toHaveLength(0);
+  });
+
+  it('stops a running timer with Ctrl+Alt+T', async () => {
+    const server = new FakeServer();
+    server.on('GET /api/timer', () => ({ timer: runningTimer() }));
+    server.on('POST /api/timer/stop', () => ({ entry: {} }));
+    await renderReady(<TimerBar />, { cache: { timer: runningTimer() } });
+
+    await act(async () => {
+      fireEvent.keyDown(window, { key: 't', ctrlKey: true, altKey: true });
+    });
+
+    await waitFor(() => expect(server.callsTo('POST /api/timer/stop')).toHaveLength(1));
   });
 
   it('shows the shortcut as keys, and a spoken description on the timer buttons', async () => {
@@ -146,11 +193,13 @@ describe('TimerBar', () => {
     await act(async () => {
       fireEvent.keyDown(window, { key: 't', ctrlKey: true, altKey: true });
     });
-    expect(server.callsTo('POST /api/timer/start')).toHaveLength(0);
+    expect(screen.queryByRole('dialog')).toBeNull();
 
     await act(async () => {
       fireEvent.keyDown(window, { key: 'j', ctrlKey: true, altKey: true });
     });
+    expect(screen.getByRole('dialog', { name: 'Choose a task to start' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('option', { name: /WEB-1/ }));
     await waitFor(() => expect(server.callsTo('POST /api/timer/start')).toHaveLength(1));
     expect(
       screen.getByRole('button', { name: /Start timer|Stop & save/ }).getAttribute('aria-keyshortcuts'),
@@ -171,7 +220,7 @@ describe('TimerBar', () => {
       fireEvent.keyDown(window, { key: 't', ctrlKey: true, altKey: true });
     });
 
-    await waitFor(() => expect(server.callsTo('POST /api/timer/start')).toHaveLength(1));
+    expect(screen.getAllByRole('dialog', { name: 'Choose a task to start' })).toHaveLength(1);
   });
 
   it('shows the workspace of the running timer and puts it in the accessible name', async () => {
