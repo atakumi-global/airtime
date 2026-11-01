@@ -24,7 +24,7 @@ use tauri::{AppHandle, Emitter, Manager, WindowEvent, Wry};
 use model::{MenuEntry, TrayPayload, TrayStatus};
 
 const TRAY_ID: &str = "airtime-tray";
-const MAIN_WINDOW: &str = "main";
+pub const MAIN_WINDOW: &str = "main";
 /// Event the webview listens to; the payload is the menu item id.
 pub const ACTION_EVENT: &str = "tray-action";
 

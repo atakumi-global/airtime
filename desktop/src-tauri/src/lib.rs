@@ -1,6 +1,7 @@
 use std::fs;
 use tauri::Manager;
 
+mod notify;
 mod tray;
 
 const KEYRING_SERVICE: &str = "com.atakumi.airtime";
@@ -82,7 +83,8 @@ pub fn run() {
             delete_secret,
             cache_read,
             cache_write,
-            tray::set_tray_state
+            tray::set_tray_state,
+            notify::notify
         ])
         .run(tauri::generate_context!())
         .expect("error while building tauri application");

@@ -4,6 +4,7 @@ import { ShortcutsProvider } from './state/ShortcutsContext';
 import { Shell, type View } from './components/Shell';
 import { BackfillDialog } from './components/BackfillDialog';
 import { TitleBar } from './components/TitleBar';
+import { NotificationBridge } from './components/NotificationBridge';
 import { TrayBridge } from './components/TrayBridge';
 import { Login } from './screens/Login';
 import { Timesheet } from './screens/Timesheet';
@@ -63,6 +64,7 @@ function Content() {
   const openBackfill = useCallback(() => setBackfill(true), []);
   const openTimesheet = useCallback(() => setView('time'), []);
   const openSettings = useCallback(() => setView('settings'), []);
+  const openProjects = useCallback(() => setView('projects'), []);
   return (
     <>
       <TrayBridge
@@ -70,6 +72,7 @@ function Content() {
         onTimesheet={openTimesheet}
         onSettings={openSettings}
       />
+      <NotificationBridge onTimesheet={openTimesheet} onProjects={openProjects} />
       <Authenticated
         view={view}
         onNavigate={setView}
