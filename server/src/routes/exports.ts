@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { Db } from '../db/pool.js';
+import { viewerOf } from '../services/access.js';
 import { buildTimeEntriesCsv } from '../services/export.js';
 
 export function exportRoutes(app: FastifyInstance, deps: { db: Db }): void {
@@ -16,7 +17,7 @@ export function exportRoutes(app: FastifyInstance, deps: { db: Db }): void {
         projectId?: string;
         memberId?: string;
       };
-      const csv = await buildTimeEntriesCsv(db, request.member!.organisation_id, {
+      const csv = await buildTimeEntriesCsv(db, request.member!.organisation_id, viewerOf(request.member!), {
         from: query.from,
         to: query.to,
         projectId: query.projectId,

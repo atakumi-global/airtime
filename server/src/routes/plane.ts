@@ -10,6 +10,12 @@ import {
   toPublicConnection,
   upsertConnection,
 } from '../services/connections.js';
+import { viewerOf } from '../services/access.js';
+import {
+  refreshMemberAccessQuietly,
+  verifyMemberAccess,
+  type AccessCheckDeps,
+} from '../services/accessCheck.js';
 import { listWorkItems } from '../services/workItems.js';
 
 const connectionSchema = z.object({
@@ -21,6 +27,7 @@ const connectionSchema = z.object({
 export type PlaneRouteDeps = {
   db: Db;
   encryptionKey: Buffer | null;
+  access: AccessCheckDeps;
 };
 
 export function planeRoutes(app: FastifyInstance, deps: PlaneRouteDeps): void {
@@ -96,6 +103,31 @@ export function planeRoutes(app: FastifyInstance, deps: PlaneRouteDeps): void {
     };
   });
 
+  // Re-reads the member's project memberships from Plane and returns the
+  // permission fingerprint, so a client can check for a change with one compare.
+  app.post('/api/plane/access/check', { preHandler: anyMember }, async (request, reply) => {
+    const connection = await getConnectionForMember(
+      db,
+      request.member!.organisation_id,
+      request.member!.id,
+    );
+    if (!connection) {
+      return reply.code(404).send({ error: 'connection_not_found' });
+    }
+    const result = await verifyMemberAccess(deps.access, request.member!, { force: true });
+    const fresh = await getConnectionForMember(
+      db,
+      request.member!.organisation_id,
+      request.member!.id,
+    );
+    return {
+      checked: result.checked,
+      changed: result.changed,
+      accessHash: fresh?.access_hash ?? null,
+      accessCheckedAt: fresh?.access_checked_at ?? null,
+    };
+  });
+
   app.delete('/api/plane/connection', { preHandler: anyMember }, async (request) => {
     const removed = await deleteConnection(
       db,
@@ -137,9 +169,11 @@ export function planeRoutes(app: FastifyInstance, deps: PlaneRouteDeps): void {
         projectId?: string;
         includeClosed?: string;
       };
+      await refreshMemberAccessQuietly(deps.access, request.member!);
       const workItems = await listWorkItems(
         db,
         request.member!.organisation_id,
+        viewerOf(request.member!),
         {
           projectId: query.projectId,
           includeClosed: query.includeClosed === 'true',

@@ -1,6 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import type { Db } from '../db/pool.js';
 import { writeAudit } from './audit.js';
+import {
+  assertCanWriteProject,
+  fromClient,
+  readableProjectSql,
+  type Viewer,
+} from './access.js';
 
 export type RateScope = 'member' | 'project' | 'project_member';
 
@@ -26,6 +32,8 @@ export type UpsertRateInput = {
   fromDate: string;
   currency: string;
   hourlyAmount: number;
+  /** Who is acting; decides which projects the change may touch. */
+  viewer: Viewer;
 };
 
 // `from_date` is a plain calendar date; it is selected as text so the driver never
@@ -37,11 +45,17 @@ const RATE_COLUMNS = `id, organisation_id, scope, member_id, project_id,
 export async function listRates(
   db: Db,
   organisationId: string,
+  viewer: Viewer,
 ): Promise<RateRow[]> {
+  // Member rates are not tied to a workspace; project rates are.
+  const params: unknown[] = [organisationId];
+  const readable = readableProjectSql(viewer, 'rates.project_id', params);
   return db.query<RateRow>(
-    `SELECT ${RATE_COLUMNS} FROM rates WHERE organisation_id = $1
+    `SELECT ${RATE_COLUMNS} FROM rates
+      WHERE organisation_id = $1
+        AND (rates.project_id IS NULL OR ${readable})
       ORDER BY scope ASC, from_date DESC, created_at ASC`,
-    [organisationId],
+    params,
   );
 }
 
@@ -78,6 +92,7 @@ async function assertReferencesBelongToOrg(
   db: Db,
   organisationId: string,
   refs: { memberId: string | null; projectId: string | null },
+  viewer: Viewer,
 ): Promise<void> {
   if (refs.memberId) {
     const rows = await db.query(
@@ -96,6 +111,7 @@ async function assertReferencesBelongToOrg(
     if (!rows[0]) {
       throw httpError('project not found', 404);
     }
+    await assertCanWriteProject(db, organisationId, viewer, refs.projectId);
   }
 }
 
@@ -104,7 +120,7 @@ export async function upsertRate(
   input: UpsertRateInput,
 ): Promise<RateRow> {
   const refs = requireReferences(input);
-  await assertReferencesBelongToOrg(db, input.organisationId, refs);
+  await assertReferencesBelongToOrg(db, input.organisationId, refs, input.viewer);
 
   return db.withTransaction(async (client) => {
     // Same scope, same target and same from-date is the same rate: update it.
@@ -162,7 +178,12 @@ export async function upsertRate(
 
 export async function deleteRate(
   db: Db,
-  input: { organisationId: string; actorMemberId: string; rateId: string },
+  input: {
+    organisationId: string;
+    actorMemberId: string;
+    rateId: string;
+    viewer: Viewer;
+  },
 ): Promise<boolean> {
   return db.withTransaction(async (client) => {
     const existing = await client.query<RateRow>(
@@ -172,6 +193,14 @@ export async function deleteRate(
     const before = existing.rows[0];
     if (!before) {
       return false;
+    }
+    if (before.project_id) {
+      await assertCanWriteProject(
+        fromClient(client),
+        input.organisationId,
+        input.viewer,
+        before.project_id,
+      );
     }
     await client.query('DELETE FROM rates WHERE id = $1', [input.rateId]);
     await writeAudit(client, {

@@ -69,7 +69,8 @@ export function lastWorkItem(entries: TimeEntry[], workItems: WorkItem[]): WorkI
       continue;
     }
     const match = workItems.find((item) => item.plane_work_item_id === entry.work_item_id);
-    if (match) {
+    // A project the member has left is history; "start last" must not resume on it.
+    if (match && match.can_enter_time !== false) {
       return match;
     }
   }

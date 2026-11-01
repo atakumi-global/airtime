@@ -1,6 +1,7 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import type { Db } from '../db/pool.js';
 import { decryptToken, encryptToken } from '../crypto/tokens.js';
+import { revokeMemberAccess } from './access.js';
 
 export type PlaneConnectionRow = {
   id: string;
@@ -14,9 +15,19 @@ export type PlaneConnectionRow = {
   last_verified_at: Date | null;
   last_synced_at: Date | null;
   last_error: string | null;
+  access_hash: string | null;
+  access_checked_at: Date | null;
   created_at: Date;
   updated_at: Date;
 };
+
+/**
+ * The Plane workspaces a connection reads. One today; AIRTIME-28 turns the
+ * single slug into a list and only this function needs to learn about it.
+ */
+export function connectionWorkspaces(connection: PlaneConnectionRow): string[] {
+  return [connection.workspace_slug];
+}
 
 export async function getConnectionForMember(
   db: Db,
@@ -118,11 +129,16 @@ export async function deleteConnection(
   organisationId: string,
   memberId: string,
 ): Promise<boolean> {
-  const rows = await db.query(
-    'DELETE FROM plane_connections WHERE organisation_id = $1 AND member_id = $2 RETURNING id',
-    [organisationId, memberId],
-  );
-  return rows.length > 0;
+  // Without a connection Airtime cannot verify the member against Plane, so
+  // current access becomes history in the same step.
+  return db.withTransaction(async (client) => {
+    const result = await client.query(
+      'DELETE FROM plane_connections WHERE organisation_id = $1 AND member_id = $2 RETURNING id',
+      [organisationId, memberId],
+    );
+    await revokeMemberAccess(client, memberId);
+    return (result.rowCount ?? 0) > 0;
+  });
 }
 
 export async function markConnectionSynced(
@@ -164,6 +180,8 @@ export function toPublicConnection(connection: PlaneConnectionRow): {
   lastVerifiedAt: Date | null;
   lastSyncedAt: Date | null;
   lastError: string | null;
+  accessHash: string | null;
+  accessCheckedAt: Date | null;
   webhookPath: string | null;
 } {
   return {
@@ -173,6 +191,8 @@ export function toPublicConnection(connection: PlaneConnectionRow): {
     lastVerifiedAt: connection.last_verified_at,
     lastSyncedAt: connection.last_synced_at,
     lastError: connection.last_error,
+    accessHash: connection.access_hash,
+    accessCheckedAt: connection.access_checked_at,
     webhookPath: connection.webhook_secret
       ? `/api/plane/webhook/${connection.webhook_secret}`
       : null,

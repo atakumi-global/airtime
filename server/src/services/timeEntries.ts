@@ -2,6 +2,13 @@ import { randomUUID } from 'node:crypto';
 import type { PoolClient, QueryResultRow } from 'pg';
 import type { Db } from '../db/pool.js';
 import { recordFeedback } from './feedback.js';
+import {
+  assertCanEnterTime,
+  assertCanWriteProject,
+  fromClient,
+  readableOrUnassignedSql,
+  type Viewer,
+} from './access.js';
 
 export const BILLABLE_MINIMUM_MINUTES = 10;
 export const MANUAL_SOURCE = 'manual';
@@ -154,6 +161,21 @@ async function insertEntry(
   return result.rows[0]!;
 }
 
+/**
+ * Recorded time is frozen history once the editor has lost access to its
+ * project: members can only change entries of projects they currently belong to.
+ * Administrators can still correct any entry.
+ */
+async function assertCanEditRecorded(
+  client: PoolClient,
+  input: { organisationId: string; viewer: Viewer },
+  projectId: string | null,
+): Promise<void> {
+  if (projectId) {
+    await assertCanWriteProject(fromClient(client), input.organisationId, input.viewer, projectId);
+  }
+}
+
 export async function getRunningTimer(
   db: Db,
   organisationId: string,
@@ -166,6 +188,8 @@ export async function getRunningTimer(
   return rows[0];
 }
 
+// Stopping always records the elapsed time: the timer was started while the
+// member had access, and discarding worked time would lose data.
 async function stopRunningTimer(
   client: PoolClient,
   organisationId: string,
@@ -209,21 +233,29 @@ export async function startTimer(
   input: {
     organisationId: string;
     memberId: string;
+    viewer: Viewer;
     workItemId?: string | null;
     description?: string | null;
   },
 ): Promise<TimerRow> {
   return db.withTransaction(async (client) => {
+    const projectId = await resolveProjectId(
+      client,
+      input.organisationId,
+      input.workItemId ?? null,
+    );
+    // Checked before the running timer is stopped, so a refused start changes nothing.
+    await assertCanEnterTime(
+      fromClient(client),
+      input.organisationId,
+      input.memberId,
+      projectId,
+    );
     await stopRunningTimer(
       client,
       input.organisationId,
       input.memberId,
       input.memberId,
-    );
-    const projectId = await resolveProjectId(
-      client,
-      input.organisationId,
-      input.workItemId ?? null,
     );
     const result = await client.query<TimerRow>(
       `INSERT INTO timers
@@ -311,6 +343,7 @@ export async function stopTimer(
 export type ManualEntryInput = {
   organisationId: string;
   memberId: string;
+  viewer: Viewer;
   workItemId?: string | null;
   description?: string | null;
   startedAt?: string;
@@ -384,6 +417,12 @@ export async function createManualEntry(
       input.organisationId,
       input.workItemId ?? null,
     );
+    await assertCanEnterTime(
+      fromClient(client),
+      input.organisationId,
+      input.memberId,
+      projectId,
+    );
     return insertEntry(client, {
       organisationId: input.organisationId,
       memberId: input.memberId,
@@ -402,6 +441,7 @@ export async function createManualEntry(
 export async function listEntries(
   db: Db,
   organisationId: string,
+  viewer: Viewer,
   filter: {
     memberId?: string;
     projectId?: string;
@@ -410,6 +450,15 @@ export async function listEntries(
     includeDeleted?: boolean;
   } = {},
 ): Promise<EntryRow[]> {
+  const params: unknown[] = [
+    organisationId,
+    filter.memberId ?? null,
+    filter.projectId ?? null,
+    filter.from ?? null,
+    filter.to ?? null,
+    filter.includeDeleted ?? false,
+  ];
+  const readable = readableOrUnassignedSql(viewer, 'time_entries.project_id', params);
   return db.query<EntryRow>(
     `SELECT * FROM time_entries
       WHERE organisation_id = $1
@@ -418,15 +467,9 @@ export async function listEntries(
         AND ($4::timestamptz IS NULL OR ended_at >= $4)
         AND ($5::timestamptz IS NULL OR started_at <= $5)
         AND ($6::boolean OR deleted_at IS NULL)
+        AND ${readable}
       ORDER BY started_at DESC`,
-    [
-      organisationId,
-      filter.memberId ?? null,
-      filter.projectId ?? null,
-      filter.from ?? null,
-      filter.to ?? null,
-      filter.includeDeleted ?? false,
-    ],
+    params,
   );
 }
 
@@ -445,6 +488,7 @@ export async function getEntry(
 export type UpdateEntryInput = {
   organisationId: string;
   actorMemberId: string;
+  viewer: Viewer;
   entryId: string;
   workItemId?: string | null;
   description?: string | null;
@@ -466,6 +510,8 @@ export async function updateEntry(
     if (!before) {
       return undefined;
     }
+    // Recorded time on a project the editor no longer belongs to is history.
+    await assertCanEditRecorded(client, input, before.project_id);
 
     const startedAt = input.startedAt
       ? new Date(input.startedAt)
@@ -494,6 +540,15 @@ export async function updateEntry(
       input.workItemId === undefined
         ? before.project_id
         : await resolveProjectId(client, input.organisationId, workItemId);
+    if (projectId !== before.project_id) {
+      // Moving time to another project is new entry on that project.
+      await assertCanEnterTime(
+        fromClient(client),
+        input.organisationId,
+        input.actorMemberId,
+        projectId,
+      );
+    }
 
     const result = await client.query<EntryRow>(
       `UPDATE time_entries
@@ -536,7 +591,12 @@ export async function updateEntry(
 
 export async function deleteEntry(
   db: Db,
-  input: { organisationId: string; actorMemberId: string; entryId: string },
+  input: {
+    organisationId: string;
+    actorMemberId: string;
+    viewer: Viewer;
+    entryId: string;
+  },
 ): Promise<boolean> {
   return db.withTransaction(async (client) => {
     const existing = await client.query<EntryRow>(
@@ -547,6 +607,7 @@ export async function deleteEntry(
     if (!before) {
       return false;
     }
+    await assertCanEditRecorded(client, input, before.project_id);
     await client.query(
       'UPDATE time_entries SET deleted_at = now(), updated_at = now() WHERE id = $1',
       [before.id],

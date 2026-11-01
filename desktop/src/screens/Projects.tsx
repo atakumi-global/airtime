@@ -132,6 +132,11 @@ export function Projects({ onNavigate }: { onNavigate: (view: View) => void }) {
                         <span className="muted small">
                           {open} open {open === 1 ? 'item' : 'items'} · from Plane
                         </span>
+                        {project.can_enter_time === false ? (
+                          <span className="muted small">
+                            History only · you are not a member of this project in Plane
+                          </span>
+                        ) : null}
                       </div>
                     </td>
                     <td>

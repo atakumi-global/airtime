@@ -6,7 +6,10 @@ import {
   type PlaneIssue,
   type PlaneProject,
 } from './client.js';
+import { applyMemberAccess, type AccessibleProject } from '../services/access.js';
+import { memberProjects } from '../services/accessCheck.js';
 import {
+  connectionWorkspaces,
   markConnectionError,
   markConnectionSynced,
   openConnectionToken,
@@ -40,6 +43,7 @@ export function syncConnection(
 async function upsertProject(
   db: Db,
   organisationId: string,
+  workspaceSlug: string,
   project: PlaneProject,
 ): Promise<string> {
   const existing = await db.query<{ id: string }>(
@@ -55,9 +59,10 @@ async function upsertProject(
     await db.query(
       `UPDATE projects
           SET name = $1, identifier = $2, archived = $3,
-              start_date = $4, target_date = $5, synced_at = now(), updated_at = now()
-        WHERE id = $6`,
-      [project.name, identifier, archived, startDate, targetDate, existing[0].id],
+              start_date = $4, target_date = $5, workspace_slug = $6,
+              synced_at = now(), updated_at = now()
+        WHERE id = $7`,
+      [project.name, identifier, archived, startDate, targetDate, workspaceSlug, existing[0].id],
     );
     return existing[0].id;
   }
@@ -65,9 +70,20 @@ async function upsertProject(
   const id = randomUUID();
   await db.query(
     `INSERT INTO projects
-       (id, organisation_id, plane_project_id, name, identifier, archived, start_date, target_date, synced_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now())`,
-    [id, organisationId, project.id, project.name, identifier, archived, startDate, targetDate],
+       (id, organisation_id, plane_project_id, workspace_slug, name, identifier, archived,
+        start_date, target_date, synced_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, now())`,
+    [
+      id,
+      organisationId,
+      project.id,
+      workspaceSlug,
+      project.name,
+      identifier,
+      archived,
+      startDate,
+      targetDate,
+    ],
   );
   return id;
 }
@@ -135,38 +151,55 @@ async function performSync(
   );
 
   try {
-    const client = new PlaneClient({
-      baseUrl: connection.base_url,
-      workspaceSlug: connection.workspace_slug,
-      token: openConnectionToken(connection, key),
-    });
-
-    const projects = await client.listProjects();
+    const token = openConnectionToken(connection, key);
+    let projectCount = 0;
     let workItems = 0;
-    for (const project of projects) {
-      const projectId = await upsertProject(
-        db,
-        connection.organisation_id,
-        project,
-      );
-      const issues = await client.listIssues(project.id);
-      for (const issue of issues) {
-        await upsertWorkItem(
+    const accessible: AccessibleProject[] = [];
+    for (const workspaceSlug of connectionWorkspaces(connection)) {
+      const client = new PlaneClient({
+        baseUrl: connection.base_url,
+        workspaceSlug,
+        token,
+      });
+      const projects = await client.listProjects();
+      // Throws when Plane reports no membership, so access is left as it was.
+      accessible.push(...memberProjects(workspaceSlug, projects));
+      projectCount += projects.length;
+      for (const project of projects) {
+        const projectId = await upsertProject(
           db,
           connection.organisation_id,
-          projectId,
-          project.identifier ?? null,
-          issue,
+          workspaceSlug,
+          project,
         );
-        workItems += 1;
+        const issues = await client.listIssues(project.id);
+        for (const issue of issues) {
+          await upsertWorkItem(
+            db,
+            connection.organisation_id,
+            projectId,
+            project.identifier ?? null,
+            issue,
+          );
+          workItems += 1;
+        }
       }
     }
+
+    // The projects now exist locally; record which of them this member belongs to.
+    await applyMemberAccess(db, {
+      organisationId: connection.organisation_id,
+      memberId: connection.member_id,
+      connectionId: connection.id,
+      previousHash: connection.access_hash,
+      accessible,
+    });
 
     await db.query(
       `UPDATE plane_sync_runs
           SET status = 'ok', projects_synced = $1, work_items_synced = $2, finished_at = now()
         WHERE id = $3`,
-      [projects.length, workItems, runId],
+      [projectCount, workItems, runId],
     );
     if (connection.status !== 'active' || connection.last_error) {
       await markConnectionSynced(db, connection.id);
@@ -176,7 +209,7 @@ async function performSync(
         [connection.id],
       );
     }
-    return { projects: projects.length, workItems };
+    return { projects: projectCount, workItems };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     await db.query(

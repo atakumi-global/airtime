@@ -3,7 +3,7 @@ import { after, before, beforeEach, test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { FastifyInstance } from 'fastify';
 import { csvField } from '../src/services/export.js';
-import { auth, getDb, login, makeApp, resetData, seed, setupSchema } from './helpers.js';
+import { auth, getDb, login, makeApp, resetData, seed, setupSchema, grantProjectAccess } from './helpers.js';
 
 let app: FastifyInstance;
 
@@ -33,6 +33,7 @@ async function createProjectState(
      VALUES ($1, $2, $3, $4, $5)`,
     [projectId, organisationId, `plane-${suffix}`, `Project ${suffix}`, suffix.toUpperCase()],
   );
+  await grantProjectAccess(organisationId, projectId);
   await db.query(
     `INSERT INTO work_items
        (id, organisation_id, project_id, plane_work_item_id, identifier, name, is_open)

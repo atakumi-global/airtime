@@ -289,6 +289,36 @@ each connection every `SYNC_POLL_SECONDS` (default 60) as a fallback for
 installations without webhooks. `GET /api/plane/work-items` returns the open work
 items, optionally filtered by `projectId` (add `includeClosed=true` for all).
 
+### Workspace access
+
+Airtime follows Plane's own permissions. A member sees a Plane project, its work
+items, time entries, budgets, expenses, rates, reports and CSV rows only while
+Plane lists them as a **member of that project**, checked with their own token
+(the `is_member` flag of `GET /workspaces/{slug}/projects/`; public projects the
+member has not joined do not count). Administrators see every project; managers
+only the projects they belong to. Projects with no Plane link are open to the
+organisation.
+
+When a member loses a project, the history stays visible but frozen: recorded
+entries, budgets and expenses remain readable, and starting a timer, adding,
+editing or deleting time, and changing budgets, rates or expenses on it is
+refused (`403 project_access_required`; a project the member never had answers
+`404`). Work items and projects carry `can_enter_time` so clients can hide what
+would be refused.
+
+Permission changes are detected with one hash. Every check stores
+`access_hash` (a SHA-256 over the sorted `workspace/project-id` pairs the member
+belongs to) on the connection, returned by `GET /api/plane/connection`. Before
+time is entered the server re-reads the member's memberships when the last check
+is older than `ACCESS_RECHECK_SECONDS` (default 60), compares the new hash with the
+stored one and, if it differs, rewrites the stored access and writes an
+`access.changed` audit entry. A refused request is re-checked once against Plane
+before it stands. `POST /api/plane/access/check` forces a check and returns the
+hash. If Plane is unreachable, the last verified access is trusted for
+`ACCESS_MAX_STALE_SECONDS` (default 3600), after which time entry fails with
+`503 access_unverifiable`. Sync and the poll scheduler apply the same check.
+Disconnecting Plane turns a member's current access into history.
+
 `TOKEN_ENCRYPTION_KEY` is required to save a connection and must be 32 bytes as
 64 hex characters. Losing it means stored Plane tokens cannot be decrypted and
 must be re-entered.

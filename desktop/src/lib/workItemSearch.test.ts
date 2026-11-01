@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { WORK_ITEMS } from '../test/fixtures';
 import type { WorkItem } from './types';
-import { searchWorkItems } from './workItemSearch';
+import { enterable, searchWorkItems } from './workItemSearch';
 
 function item(id: string, identifier: string, name: string, is_open = true): WorkItem {
   return {
@@ -48,5 +48,17 @@ describe('searchWorkItems', () => {
     const bare = { ...item('1', 'X', 'No number'), identifier: null };
     expect(searchWorkItems([bare], 'number')).toHaveLength(1);
     expect(searchWorkItems(WORK_ITEMS, 'web', 0)).toEqual([]);
+  });
+});
+
+describe('history-only work items', () => {
+  it('are left out of pickers and search but items without the flag stay', () => {
+    const items = [
+      item('1', 'WEB-1', 'Current work'),
+      { ...item('2', 'WEB-2', 'Left project'), can_enter_time: false },
+      { ...item('3', 'WEB-3', 'Explicitly allowed'), can_enter_time: true },
+    ];
+    expect(enterable(items).map((entry) => entry.id)).toEqual(['1', '3']);
+    expect(searchWorkItems(items, 'web').map((entry) => entry.id)).toEqual(['1', '3']);
   });
 });

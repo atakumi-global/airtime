@@ -33,6 +33,9 @@ export function startSyncScheduler(
     void runOnce();
   }, intervalSeconds * 1000);
   timer.unref();
+  // Members' project access is stored per sync; run one straight away so a
+  // restart or an upgrade does not leave it empty for a whole interval.
+  void runOnce();
 
   return () => clearInterval(timer);
 }

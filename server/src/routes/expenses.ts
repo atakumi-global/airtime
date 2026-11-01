@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { Db } from '../db/pool.js';
+import { viewerOf } from '../services/access.js';
 import { getProject } from '../services/projects.js';
 import {
   EXPENSE_CATEGORIES,
@@ -66,6 +67,7 @@ export function expenseRoutes(app: FastifyInstance, deps: { db: Db }): void {
     const expenses = await listExpenses(
       db,
       request.member!.organisation_id,
+      viewerOf(request.member!),
       parsed.data,
     );
     return { expenses };
@@ -80,11 +82,13 @@ export function expenseRoutes(app: FastifyInstance, deps: { db: Db }): void {
         return reply.code(404).send({ error: 'project_not_found' });
       }
       const orgId = request.member!.organisation_id;
-      const project = await getProject(db, orgId, id);
+      const project = await getProject(db, orgId, id, viewerOf(request.member!));
       if (!project) {
         return reply.code(404).send({ error: 'project_not_found' });
       }
-      const expenses = await listExpenses(db, orgId, { projectId: id });
+      const expenses = await listExpenses(db, orgId, viewerOf(request.member!), {
+        projectId: id,
+      });
       return { expenses };
     },
   );
@@ -104,6 +108,7 @@ export function expenseRoutes(app: FastifyInstance, deps: { db: Db }): void {
       const expense = await createExpense(db, {
         organisationId: request.member!.organisation_id,
         actorMemberId: request.member!.id,
+        viewer: viewerOf(request.member!),
         projectId: id,
         workItemId: parsed.data.workItemId ?? null,
         date: parsed.data.date,
@@ -128,6 +133,7 @@ export function expenseRoutes(app: FastifyInstance, deps: { db: Db }): void {
     const expense = await updateExpense(db, {
       organisationId: request.member!.organisation_id,
       actorMemberId: request.member!.id,
+      viewer: viewerOf(request.member!),
       expenseId: id,
       date: parsed.data.date,
       amount: parsed.data.amount,
@@ -150,6 +156,7 @@ export function expenseRoutes(app: FastifyInstance, deps: { db: Db }): void {
     const removed = await deleteExpense(db, {
       organisationId: request.member!.organisation_id,
       actorMemberId: request.member!.id,
+      viewer: viewerOf(request.member!),
       expenseId: id,
     });
     if (!removed) {
@@ -167,7 +174,7 @@ export function expenseRoutes(app: FastifyInstance, deps: { db: Db }): void {
         return reply.code(404).send({ error: 'expense_not_found' });
       }
       const orgId = request.member!.organisation_id;
-      const existing = await getExpense(db, orgId, id);
+      const existing = await getExpense(db, orgId, id, viewerOf(request.member!));
       if (!existing) {
         return reply.code(404).send({ error: 'expense_not_found' });
       }

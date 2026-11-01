@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { Db } from '../db/pool.js';
+import { viewerOf } from '../services/access.js';
 import { deleteRate, listRates, upsertRate } from '../services/rates.js';
 
 const calendarDate = z
@@ -33,7 +34,11 @@ export function rateRoutes(app: FastifyInstance, deps: { db: Db }): void {
   const managerOnly = app.requireRole('manager', 'administrator');
 
   app.get('/api/rates', { preHandler: managerOnly }, async (request) => {
-    const rates = await listRates(db, request.member!.organisation_id);
+    const rates = await listRates(
+      db,
+      request.member!.organisation_id,
+      viewerOf(request.member!),
+    );
     return { rates };
   });
 
@@ -51,6 +56,7 @@ export function rateRoutes(app: FastifyInstance, deps: { db: Db }): void {
       fromDate: parsed.data.fromDate,
       currency: parsed.data.currency,
       hourlyAmount: parsed.data.hourlyAmount,
+      viewer: viewerOf(request.member!),
     });
     return { rate };
   });
@@ -67,6 +73,7 @@ export function rateRoutes(app: FastifyInstance, deps: { db: Db }): void {
         organisationId: request.member!.organisation_id,
         actorMemberId: request.member!.id,
         rateId: id,
+        viewer: viewerOf(request.member!),
       });
       if (!removed) {
         return reply.code(404).send({ error: 'rate_not_found' });

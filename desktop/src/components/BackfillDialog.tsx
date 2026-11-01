@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { enterable } from '../lib/workItemSearch';
 import { useApp } from '../state/AppContext';
 import { durationError, parseDuration } from '../lib/format';
 import { DurationInput } from './DurationInput';
@@ -6,7 +7,8 @@ import { ModalDialog } from './ModalDialog';
 import { Field } from './ui';
 
 export function BackfillDialog({ onClose }: { onClose: () => void }) {
-  const { workItems, addManualEntry } = useApp();
+  const { workItems: allWorkItems, addManualEntry } = useApp();
+  const workItems = enterable(allWorkItems);
   const [workItemId, setWorkItemId] = useState(workItems[0]?.plane_work_item_id ?? '');
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [duration, setDuration] = useState('1h');

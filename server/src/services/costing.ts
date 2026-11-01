@@ -1,4 +1,5 @@
 import type { Db } from '../db/pool.js';
+import type { Viewer } from './access.js';
 import { listEntries, type EntryRow } from './timeEntries.js';
 import {
   convertAmount,
@@ -221,9 +222,10 @@ export type Timesheet = {
 export async function getTimesheet(
   db: Db,
   organisationId: string,
+  viewer: Viewer,
   filter: { memberId?: string; from?: string; to?: string } = {},
 ): Promise<Timesheet> {
-  const entries = await listEntries(db, organisationId, filter);
+  const entries = await listEntries(db, organisationId, viewer, filter);
   const index = await buildRateIndex(db, organisationId);
 
   const organisation = await getPrimaryOrganisation(db);

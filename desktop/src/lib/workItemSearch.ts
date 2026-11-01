@@ -2,6 +2,11 @@ import type { WorkItem } from './types';
 
 export const MAX_SEARCH_RESULTS = 8;
 
+/** Work items that may receive new time; history-only items are left out of pickers. */
+export function enterable(items: WorkItem[]): WorkItem[] {
+  return items.filter((item) => item.can_enter_time !== false);
+}
+
 function haystack(item: WorkItem): string {
   return [item.identifier, item.name, item.project_name, item.project_identifier]
     .filter((part): part is string => typeof part === 'string' && part !== '')
@@ -24,7 +29,7 @@ export function searchWorkItems(
     const idMatch = words.length > 0 && identifier.startsWith(words[0]!) ? 0 : 1;
     return (item.is_open ? 0 : 2) + idMatch;
   };
-  return items
+  return enterable(items)
     .map((item, index) => ({ item, index }))
     .filter(({ item }) => {
       const text = haystack(item);
