@@ -20,6 +20,7 @@ import { expenseRoutes } from './routes/expenses.js';
 import { feedbackRoutes } from './routes/feedback.js';
 import { setFeedbackSalt } from './services/feedback.js';
 import { parseEncryptionKey } from './crypto/tokens.js';
+import type { AccessCheckDeps } from './services/accessCheck.js';
 
 export type AppDeps = {
   db: Db;
@@ -45,27 +46,33 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
 
   registerAuth(app, { db: deps.db, jwtSecret: deps.config.jwtSecret });
 
+  const encryptionKey = deps.config.tokenEncryptionKey
+    ? parseEncryptionKey(deps.config.tokenEncryptionKey)
+    : null;
+  const access: AccessCheckDeps = {
+    db: deps.db,
+    encryptionKey,
+    recheckSeconds: deps.config.accessRecheckSeconds,
+    maxStaleSeconds: deps.config.accessMaxStaleSeconds,
+  };
+
   healthRoutes(app, deps);
   authRoutes(app, deps);
   memberRoutes(app, deps);
   projectRoutes(app, {
     db: deps.db,
     projectionHorizonDays: deps.config.projectionHorizonDays,
+    access,
   });
   rateRoutes(app, deps);
   expenseRoutes(app, deps);
   auditRoutes(app, deps);
-  timeRoutes(app, deps);
+  timeRoutes(app, { db: deps.db, access });
   organisationRoutes(app, deps);
   fxRoutes(app, { db: deps.db, providerUrl: deps.config.fxProviderUrl });
   exportRoutes(app, deps);
   feedbackRoutes(app, deps);
-  planeRoutes(app, {
-    db: deps.db,
-    encryptionKey: deps.config.tokenEncryptionKey
-      ? parseEncryptionKey(deps.config.tokenEncryptionKey)
-      : null,
-  });
+  planeRoutes(app, { db: deps.db, encryptionKey, access });
 
   app.setNotFoundHandler((_request, reply) => {
     return reply.code(404).send({ error: 'not_found' });
@@ -73,7 +80,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
 
   app.setErrorHandler((error, request, reply) => {
     const statusCode = (error as { statusCode?: number }).statusCode;
-    if (statusCode && statusCode >= 400 && statusCode < 500) {
+    if (statusCode && ((statusCode >= 400 && statusCode < 500) || statusCode === 503)) {
       return reply
         .code(statusCode)
         .send({ error: error instanceof Error ? error.message : 'request_error' });

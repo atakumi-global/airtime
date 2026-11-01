@@ -40,6 +40,14 @@ describe('Projects', () => {
     expect(screen.getByText('2 open items · from Plane', { exact: false })).toBeTruthy();
   });
 
+  it('marks a project the member has left as history only', async () => {
+    await setup(ADMIN, [
+      { ...PROJECTS[0]!, can_enter_time: false },
+      { ...PROJECTS[1]!, can_enter_time: true },
+    ]);
+    expect(screen.getAllByText('History only', { exact: false })).toHaveLength(1);
+  });
+
   it('counts open work items per project', async () => {
     await setup();
     expect(screen.getByText('2 open items · from Plane')).toBeTruthy();

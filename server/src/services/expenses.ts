@@ -2,6 +2,12 @@ import { randomUUID } from 'node:crypto';
 import type { PoolClient } from 'pg';
 import type { Db } from '../db/pool.js';
 import { writeAudit } from './audit.js';
+import {
+  assertCanWriteProject,
+  fromClient,
+  readableProjectSql,
+  type Viewer,
+} from './access.js';
 import { ValidationError } from './timeEntries.js';
 import { convertAmount, getLatestRates, type FxSnapshot } from './fx.js';
 import { getPrimaryOrganisation } from './organisations.js';
@@ -166,8 +172,16 @@ async function assertWorkItemInProject(
 export async function listExpenses(
   db: Db,
   organisationId: string,
+  viewer: Viewer,
   filter: { projectId?: string; from?: string; to?: string } = {},
 ): Promise<ExpenseRow[]> {
+  const params: unknown[] = [
+    organisationId,
+    filter.projectId ?? null,
+    filter.from ?? null,
+    filter.to ?? null,
+  ];
+  const readable = readableProjectSql(viewer, 'expenses.project_id', params);
   return db.query<ExpenseRow>(
     `SELECT ${EXPENSE_COLUMNS} FROM expenses
       WHERE organisation_id = $1
@@ -175,19 +189,25 @@ export async function listExpenses(
         AND ($2::uuid IS NULL OR project_id = $2)
         AND ($3::date IS NULL OR expense_date >= $3)
         AND ($4::date IS NULL OR expense_date <= $4)
+        AND ${readable}
       ORDER BY expense_date DESC, created_at DESC`,
-    [organisationId, filter.projectId ?? null, filter.from ?? null, filter.to ?? null],
+    params,
   );
 }
 
+/** An expense on a project the viewer may read; undefined when missing or hidden. */
 export async function getExpense(
   db: Db,
   organisationId: string,
   expenseId: string,
+  viewer: Viewer,
 ): Promise<ExpenseRow | undefined> {
+  const params: unknown[] = [organisationId, expenseId];
+  const readable = readableProjectSql(viewer, 'expenses.project_id', params);
   const rows = await db.query<ExpenseRow>(
-    `SELECT ${EXPENSE_COLUMNS} FROM expenses WHERE organisation_id = $1 AND id = $2`,
-    [organisationId, expenseId],
+    `SELECT ${EXPENSE_COLUMNS} FROM expenses
+      WHERE organisation_id = $1 AND id = $2 AND ${readable}`,
+    params,
   );
   return rows[0];
 }
@@ -195,6 +215,7 @@ export async function getExpense(
 export type CreateExpenseInput = {
   organisationId: string;
   actorMemberId: string;
+  viewer: Viewer;
   projectId: string;
   workItemId?: string | null;
   date: string;
@@ -219,6 +240,12 @@ export async function createExpense(
     if (!project.rows[0]) {
       throw notFound('project_not_found');
     }
+    await assertCanWriteProject(
+      fromClient(client),
+      input.organisationId,
+      input.viewer,
+      input.projectId,
+    );
     if (input.workItemId) {
       await assertWorkItemInProject(
         client,
@@ -268,6 +295,7 @@ export async function createExpense(
 export type UpdateExpenseInput = {
   organisationId: string;
   actorMemberId: string;
+  viewer: Viewer;
   expenseId: string;
   workItemId?: string | null;
   date?: string;
@@ -281,7 +309,12 @@ export async function updateExpense(
   db: Db,
   input: UpdateExpenseInput,
 ): Promise<ExpenseRow | null> {
-  const current = await getExpense(db, input.organisationId, input.expenseId);
+  const current = await getExpense(
+    db,
+    input.organisationId,
+    input.expenseId,
+    input.viewer,
+  );
   if (!current || current.deleted_at) {
     return null;
   }
@@ -304,6 +337,12 @@ export async function updateExpense(
     if (!before) {
       return null;
     }
+    await assertCanWriteProject(
+      fromClient(client),
+      input.organisationId,
+      input.viewer,
+      before.project_id,
+    );
     const workItemId =
       input.workItemId === undefined ? before.work_item_id : input.workItemId;
     if (workItemId && input.workItemId !== undefined) {
@@ -359,7 +398,12 @@ export async function updateExpense(
 
 export async function deleteExpense(
   db: Db,
-  input: { organisationId: string; actorMemberId: string; expenseId: string },
+  input: {
+    organisationId: string;
+    actorMemberId: string;
+    viewer: Viewer;
+    expenseId: string;
+  },
 ): Promise<boolean> {
   return db.withTransaction(async (client) => {
     const locked = await client.query<ExpenseRow>(
@@ -371,6 +415,12 @@ export async function deleteExpense(
     if (!before) {
       return false;
     }
+    await assertCanWriteProject(
+      fromClient(client),
+      input.organisationId,
+      input.viewer,
+      before.project_id,
+    );
     const result = await client.query<ExpenseRow>(
       `UPDATE expenses SET deleted_at = now(), updated_at = now()
         WHERE id = $1 RETURNING ${EXPENSE_COLUMNS}`,

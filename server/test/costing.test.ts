@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { after, before, beforeEach, test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { FastifyInstance } from 'fastify';
-import { auth, getDb, login, makeApp, resetData, seed, setupSchema } from './helpers.js';
+import { auth, getDb, login, makeApp, resetData, seed, setupSchema, grantProjectAccess } from './helpers.js';
 
 let app: FastifyInstance;
 
@@ -32,6 +32,7 @@ async function createProject(
      VALUES ($1, $2, 'plane-p1', 'Website', 'WEB', $3, $4)`,
     [projectId, organisationId, clientId, targetDate],
   );
+  await grantProjectAccess(organisationId, projectId);
   await db.query(
     `INSERT INTO work_items
        (id, organisation_id, project_id, plane_work_item_id, identifier, name, is_open)
@@ -49,6 +50,7 @@ async function createBareProject(organisationId: string): Promise<string> {
      VALUES ($1, $2, $3, 'Second project')`,
     [projectId, organisationId, `plane-${projectId}`],
   );
+  await grantProjectAccess(organisationId, projectId);
   return projectId;
 }
 

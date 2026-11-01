@@ -4,6 +4,7 @@ import {
   type EntryUpdateInput,
   type ManualEntryInput,
 } from '../state/AppContext';
+import { enterable } from '../lib/workItemSearch';
 import { Metric, Badge } from '../components/ui';
 import { EntryDialog } from '../components/EntryDialog';
 import { KeyCaps } from '../components/KeyCaps';
@@ -569,7 +570,7 @@ export function Timesheet({ onBackfill }: { onBackfill: () => void }) {
                           aria-label="Work item"
                         >
                           <option value="">No work item</option>
-                          {workItems.map((item) => (
+                          {enterable(workItems).map((item) => (
                             <option key={item.id} value={item.plane_work_item_id}>
                               {item.identifier ? `${item.identifier} · ` : ''}
                               {item.name}

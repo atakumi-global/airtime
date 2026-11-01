@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Db } from '../db/pool.js';
 import { writeAudit } from './audit.js';
+import { assertCanWriteProject, fromClient, type Viewer } from './access.js';
 
 export type BudgetRow = {
   id: string;
@@ -36,6 +37,7 @@ export type UpsertBudgetInput = {
   price?: number | null;
   profitTargetPercent?: number | null;
   marginTargetAmount?: number | null;
+  viewer: Viewer;
 };
 
 export async function upsertBudget(
@@ -50,6 +52,12 @@ export async function upsertBudget(
     if (!project.rows[0]) {
       throw Object.assign(new Error('project not found'), { statusCode: 404 });
     }
+    await assertCanWriteProject(
+      fromClient(client),
+      input.organisationId,
+      input.viewer,
+      input.projectId,
+    );
 
     const existing = await client.query<BudgetRow>(
       'SELECT * FROM budgets WHERE organisation_id = $1 AND project_id = $2 FOR UPDATE',
@@ -108,9 +116,20 @@ export async function upsertBudget(
 
 export async function deleteBudget(
   db: Db,
-  input: { organisationId: string; actorMemberId: string; projectId: string },
+  input: {
+    organisationId: string;
+    actorMemberId: string;
+    projectId: string;
+    viewer: Viewer;
+  },
 ): Promise<boolean> {
   return db.withTransaction(async (client) => {
+    await assertCanWriteProject(
+      fromClient(client),
+      input.organisationId,
+      input.viewer,
+      input.projectId,
+    );
     const existing = await client.query<BudgetRow>(
       'SELECT * FROM budgets WHERE organisation_id = $1 AND project_id = $2 FOR UPDATE',
       [input.organisationId, input.projectId],

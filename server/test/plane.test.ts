@@ -73,8 +73,8 @@ function startPlaneServer(): {
     if (url.startsWith('/api/v1/workspaces/atakumi/projects/')) {
       send(200, {
         results: [
-          { id: 'p1', identifier: 'WEB', name: 'Website' },
-          { id: 'p2', identifier: 'APP', name: 'App' },
+          { id: 'p1', identifier: 'WEB', name: 'Website', is_member: true, member_role: 20 },
+          { id: 'p2', identifier: 'APP', name: 'App', is_member: true, member_role: 20 },
         ],
         next_page_results: false,
       });

@@ -112,6 +112,8 @@ export type Project = {
   start_date: string | null;
   target_date: string | null;
   summary?: BudgetSummary;
+  /** False when the project is history only: it stays readable but takes no new time. */
+  can_enter_time?: boolean;
 };
 
 export type WorkItem = {
@@ -124,6 +126,8 @@ export type WorkItem = {
   is_open: boolean;
   project_name: string | null;
   project_identifier: string | null;
+  /** False when the work item is history only: it stays readable but takes no new time. */
+  can_enter_time?: boolean;
 };
 
 export type TimeEntry = {

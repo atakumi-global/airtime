@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useApp } from '../state/AppContext';
 import { formatTimerElapsed } from '../lib/format';
+import { enterable } from '../lib/workItemSearch';
 import { useShortcut, useShortcuts } from '../state/ShortcutsContext';
 import { shortcutAria, ShortcutHint } from './KeyCaps';
 import { Badge } from './ui';
@@ -10,7 +11,7 @@ export function TimerBar() {
     timer,
     timerState,
     timerPending,
-    workItems,
+    workItems: allWorkItems,
     startTimer,
     pauseTimer,
     resumeTimer,
@@ -20,6 +21,8 @@ export function TimerBar() {
     member,
   } = useApp();
   const [now, setNow] = useState(() => Date.now());
+  // A running timer may sit on a history-only item; only new starts are limited.
+  const workItems = enterable(allWorkItems);
 
   useEffect(() => {
     if (timerState !== 'running') {
@@ -30,7 +33,7 @@ export function TimerBar() {
   }, [timerState]);
 
   const item = timer?.work_item_id
-    ? workItems.find((entry) => entry.plane_work_item_id === timer.work_item_id)
+    ? allWorkItems.find((entry) => entry.plane_work_item_id === timer.work_item_id)
     : undefined;
   const label = item
     ? `${item.identifier ?? ''} · ${item.name}`.replace(/^ · /, '')

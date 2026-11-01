@@ -195,6 +195,14 @@ AIRTIME-1, 3, 4, 5, 7, 8, 9, 10, 16, 17–24, 26, 31, 32, 33, 53, 55.
 
 ## Decisions and assumptions
 
+- AIRTIME-90 workspace access: a member sees and enters time on a Plane project
+  only while Plane lists them as a member of it (their own token). History stays
+  visible but frozen. A SHA-256 over the member's project memberships
+  (`plane_connections.access_hash`) is the permission-change check before time
+  entry. Administrators see all projects; managers only theirs. Details in
+  README "Workspace access". AIRTIME-28 builds on `connectionWorkspaces()` and
+  `project_access`.
+
 - AIRTIME-16 v2 is the approved design; screens were implemented without
   per-screen checkpoints, then reviewed.
 - My time is now the week/month timesheet; the earlier day-list screen was

@@ -312,4 +312,49 @@ export const migrations: Migration[] = [
         WHERE deleted_at IS NULL;
     `,
   },
+  {
+    id: '011_workspace_access',
+    sql: `
+      ALTER TABLE projects ADD COLUMN IF NOT EXISTS workspace_slug text;
+
+      -- Existing projects belong to the workspace of their organisation's
+      -- connection(s); every sync keeps the value current afterwards.
+      UPDATE projects p
+         SET workspace_slug = (
+               SELECT c.workspace_slug FROM plane_connections c
+                WHERE c.organisation_id = p.organisation_id
+                ORDER BY c.created_at ASC
+                LIMIT 1
+             )
+       WHERE p.plane_project_id IS NOT NULL AND p.workspace_slug IS NULL;
+
+      -- A row says a member has (status 'member') or once had (status 'former')
+      -- Plane membership of a project, as seen with the member's own token.
+      -- Former rows keep historic data readable; only 'member' rows allow new entries.
+      CREATE TABLE IF NOT EXISTS project_access (
+        member_id uuid NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+        project_id uuid NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        organisation_id uuid NOT NULL REFERENCES organisations(id) ON DELETE CASCADE,
+        status text NOT NULL CHECK (status IN ('member', 'former')),
+        verified_at timestamptz NOT NULL DEFAULT now(),
+        updated_at timestamptz NOT NULL DEFAULT now(),
+        PRIMARY KEY (member_id, project_id)
+      );
+
+      CREATE INDEX IF NOT EXISTS project_access_project_idx
+        ON project_access (project_id);
+
+      -- Permission-change fingerprint: sha-256 over the sorted set of Plane
+      -- projects the member belongs to, and when it was last checked live.
+      ALTER TABLE plane_connections ADD COLUMN IF NOT EXISTS access_hash text;
+      ALTER TABLE plane_connections ADD COLUMN IF NOT EXISTS access_checked_at timestamptz;
+
+      -- Existing time keeps its author's read access as history.
+      INSERT INTO project_access (member_id, project_id, organisation_id, status)
+      SELECT DISTINCT e.member_id, e.project_id, e.organisation_id, 'former'
+        FROM time_entries e
+       WHERE e.project_id IS NOT NULL
+      ON CONFLICT (member_id, project_id) DO NOTHING;
+    `,
+  },
 ];

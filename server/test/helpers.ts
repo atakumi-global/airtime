@@ -34,6 +34,8 @@ export const testConfig: AppConfig = {
   corsOrigins: ['tauri://localhost', 'http://tauri.localhost'],
   syncPollSeconds: 0,
   syncPollEnabled: false,
+  accessRecheckSeconds: 0,
+  accessMaxStaleSeconds: 3600,
   projectionHorizonDays: 30,
   fxProviderUrl: 'http://127.0.0.1:1/latest',
   fxRefreshHours: 0,
@@ -54,12 +56,19 @@ export async function resetData(): Promise<void> {
   await getDb().query(
     `TRUNCATE organisations, members, projects, rates, budgets, time_entries,
               audit_log, plane_connections, work_items, plane_sync_runs,
-              timers, time_entry_history, fx_rates, feedback_events, expenses CASCADE`,
+              timers, time_entry_history, fx_rates, feedback_events, expenses,
+              project_access CASCADE`,
   );
 }
 
-export async function makeApp(): Promise<FastifyInstance> {
-  return buildApp({ db: getDb(), config: testConfig, oidc: null });
+export async function makeApp(
+  overrides: Partial<AppConfig> = {},
+): Promise<FastifyInstance> {
+  return buildApp({
+    db: getDb(),
+    config: { ...testConfig, ...overrides },
+    oidc: null,
+  });
 }
 
 export type SeedResult = {
@@ -122,4 +131,24 @@ export async function login(
 
 export function auth(token: string): { authorization: string } {
   return { authorization: `Bearer ${token}` };
+}
+
+/**
+ * Gives every active member of the organisation current Plane membership of
+ * the project, as a sync would after Plane lists them in it.
+ */
+export async function grantProjectAccess(
+  organisationId: string,
+  projectId: string,
+  memberIds?: string[],
+): Promise<void> {
+  await getDb().query(
+    `INSERT INTO project_access (member_id, project_id, organisation_id, status)
+     SELECT m.id, $2, $1, 'member'
+       FROM members m
+      WHERE m.organisation_id = $1
+        AND ($3::uuid[] IS NULL OR m.id = ANY($3::uuid[]))
+     ON CONFLICT (member_id, project_id) DO UPDATE SET status = 'member'`,
+    [organisationId, projectId, memberIds ?? null],
+  );
 }

@@ -5,7 +5,29 @@ export type PlaneProject = {
   archived_at?: string | null;
   start_date?: string | null;
   target_date?: string | null;
+  /** True when the calling user is an active member of the project. */
+  is_member?: boolean | null;
+  /** The calling user's project role; null for a non-member who only sees a public project. */
+  member_role?: number | null;
 };
+
+/**
+ * Plane lists every project the token's user may see, which includes public
+ * projects they have not joined. Membership is what grants access in Airtime.
+ * Returns null when the response carries no membership information at all.
+ */
+export function isProjectMember(project: PlaneProject): boolean | null {
+  if (project.is_member === true) {
+    return true;
+  }
+  if (typeof project.member_role === 'number') {
+    return true;
+  }
+  if (project.is_member === false || project.member_role === null) {
+    return false;
+  }
+  return null;
+}
 
 export type PlaneIssue = {
   id: string;

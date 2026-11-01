@@ -77,6 +77,14 @@ describe('lastWorkItem', () => {
     expect(lastWorkItem(entries, items)?.plane_work_item_id).toBe('w2');
   });
 
+  it('skips a work item on a project the member can no longer enter time on', () => {
+    const entries = [entry('w1', '2026-05-01T09:00:00Z'), entry('w2', '2026-05-03T09:00:00Z')];
+    const gone = items.map((candidate) =>
+      candidate.plane_work_item_id === 'w2' ? { ...candidate, can_enter_time: false } : candidate,
+    );
+    expect(lastWorkItem(entries, gone)?.plane_work_item_id).toBe('w1');
+  });
+
   it('returns null when nothing qualifies', () => {
     expect(lastWorkItem([], items)).toBeNull();
     expect(lastWorkItem([entry(null, '2026-05-01T09:00:00Z')], items)).toBeNull();

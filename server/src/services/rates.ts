@@ -1,6 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import type { Db } from '../db/pool.js';
 import { writeAudit } from './audit.js';
+import {
+  assertCanWriteProject,
+  fromClient,
+  readableProjectSql,
+  type Viewer,
+} from './access.js';
 
 export type RateScope = 'member' | 'project' | 'client';
 
@@ -26,15 +32,24 @@ export type UpsertRateInput = {
   clientId?: string | null;
   currency: string;
   hourlyAmount: number;
+  /** Who is acting; decides which projects the change may touch. */
+  viewer: Viewer;
 };
 
 export async function listRates(
   db: Db,
   organisationId: string,
+  viewer: Viewer,
 ): Promise<RateRow[]> {
+  // Member and client rates are not tied to a workspace; project rates are.
+  const params: unknown[] = [organisationId];
+  const readable = readableProjectSql(viewer, 'rates.project_id', params);
   return db.query<RateRow>(
-    'SELECT * FROM rates WHERE organisation_id = $1 ORDER BY scope ASC, created_at ASC',
-    [organisationId],
+    `SELECT * FROM rates
+      WHERE organisation_id = $1
+        AND (rates.project_id IS NULL OR ${readable})
+      ORDER BY scope ASC, created_at ASC`,
+    params,
   );
 }
 
@@ -79,14 +94,8 @@ async function assertReferenceBelongsToOrg(
       throw Object.assign(new Error('member not found'), { statusCode: 404 });
     }
   }
-  if (input.scope === 'project') {
-    const rows = await db.query(
-      'SELECT 1 FROM projects WHERE id = $1 AND organisation_id = $2',
-      [input.projectId, input.organisationId],
-    );
-    if (!rows[0]) {
-      throw Object.assign(new Error('project not found'), { statusCode: 404 });
-    }
+  if (input.scope === 'project' && input.projectId) {
+    await assertCanWriteProject(db, input.organisationId, input.viewer, input.projectId);
   }
 }
 
@@ -146,7 +155,12 @@ export async function upsertRate(
 
 export async function deleteRate(
   db: Db,
-  input: { organisationId: string; actorMemberId: string; rateId: string },
+  input: {
+    organisationId: string;
+    actorMemberId: string;
+    rateId: string;
+    viewer: Viewer;
+  },
 ): Promise<boolean> {
   return db.withTransaction(async (client) => {
     const existing = await client.query<RateRow>(
@@ -156,6 +170,14 @@ export async function deleteRate(
     const before = existing.rows[0];
     if (!before) {
       return false;
+    }
+    if (before.project_id) {
+      await assertCanWriteProject(
+        fromClient(client),
+        input.organisationId,
+        input.viewer,
+        before.project_id,
+      );
     }
     await client.query('DELETE FROM rates WHERE id = $1', [input.rateId]);
     await writeAudit(client, {

@@ -11,6 +11,8 @@ export type AppConfig = {
   corsOrigins: string[];
   syncPollSeconds: number;
   syncPollEnabled: boolean;
+  accessRecheckSeconds: number;
+  accessMaxStaleSeconds: number;
   projectionHorizonDays: number;
   fxProviderUrl: string;
   fxRefreshHours: number;
@@ -34,6 +36,17 @@ function requireEnv(name: string): string {
     throw new Error(`Missing required environment variable ${name}`);
   }
   return value;
+}
+
+function positiveNumber(value: string | undefined, fallback: number, name: string): number {
+  if (value === undefined || value.trim() === '') {
+    return fallback;
+  }
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    throw new Error(`Invalid ${name} value: ${value}`);
+  }
+  return parsed;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
@@ -66,6 +79,12 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       .filter(Boolean),
     syncPollSeconds: Number(env.SYNC_POLL_SECONDS ?? 60),
     syncPollEnabled: (env.SYNC_POLL_ENABLED ?? 'true') !== 'false',
+    accessRecheckSeconds: positiveNumber(env.ACCESS_RECHECK_SECONDS, 60, 'ACCESS_RECHECK_SECONDS'),
+    accessMaxStaleSeconds: positiveNumber(
+      env.ACCESS_MAX_STALE_SECONDS,
+      3600,
+      'ACCESS_MAX_STALE_SECONDS',
+    ),
     projectionHorizonDays: Number(env.PROJECTION_HORIZON_DAYS ?? 30),
     fxProviderUrl:
       env.FX_PROVIDER_URL ?? 'https://api.frankfurter.dev/v1/latest',

@@ -3,6 +3,7 @@ import type { EntryRow } from './timeEntries.js';
 import { buildRateIndex, costEntry } from './costing.js';
 import { convertAmount, getLatestRates } from './fx.js';
 import { getPrimaryOrganisation } from './organisations.js';
+import { readableOrUnassignedSql, readableProjectSql, type Viewer } from './access.js';
 import { convertExpense, expenseDateText, type ExpenseRow } from './expenses.js';
 
 export type ExportFilter = {
@@ -50,8 +51,17 @@ function dateOnly(value: Date): string {
 export async function buildTimeEntriesCsv(
   db: Db,
   organisationId: string,
+  viewer: Viewer,
   filter: ExportFilter,
 ): Promise<string> {
+  const entryParams: unknown[] = [
+    organisationId,
+    filter.memberId ?? null,
+    filter.projectId ?? null,
+    filter.from ?? null,
+    filter.to ?? null,
+  ];
+  const entryReadable = readableOrUnassignedSql(viewer, 'e.project_id', entryParams);
   const rows = await db.query<ExportRow>(
     `SELECT e.*,
             m.display_name AS member_name,
@@ -72,14 +82,9 @@ export async function buildTimeEntriesCsv(
         AND ($3::uuid IS NULL OR e.project_id = $3)
         AND ($4::timestamptz IS NULL OR e.ended_at >= $4)
         AND ($5::timestamptz IS NULL OR e.started_at <= $5)
+        AND ${entryReadable}
       ORDER BY e.started_at ASC`,
-    [
-      organisationId,
-      filter.memberId ?? null,
-      filter.projectId ?? null,
-      filter.from ?? null,
-      filter.to ?? null,
-    ],
+    entryParams,
   );
 
   const organisation = await getPrimaryOrganisation(db);
@@ -156,6 +161,13 @@ export async function buildTimeEntriesCsv(
     );
   }
 
+  const expenseParams: unknown[] = [
+    organisationId,
+    filter.projectId ?? null,
+    filter.from ?? null,
+    filter.to ?? null,
+  ];
+  const expenseReadable = readableProjectSql(viewer, 'x.project_id', expenseParams);
   // Expenses are not tied to a member's time, so a member filter excludes them.
   const expenseRows = filter.memberId
     ? []
@@ -181,8 +193,9 @@ export async function buildTimeEntriesCsv(
                  OR x.expense_date >= (($3::timestamptz) AT TIME ZONE 'UTC')::date)
             AND ($4::timestamptz IS NULL
                  OR x.expense_date <= (($4::timestamptz) AT TIME ZONE 'UTC')::date)
+            AND ${expenseReadable}
           ORDER BY x.expense_date ASC, x.created_at ASC`,
-        [organisationId, filter.projectId ?? null, filter.from ?? null, filter.to ?? null],
+        expenseParams,
       );
 
   for (const row of expenseRows) {

@@ -106,6 +106,11 @@ export async function removeMember(
     'DELETE FROM plane_connections WHERE organisation_id = $1 AND member_id = $2',
     [organisationId, memberId],
   );
+  await db.query(
+    `UPDATE project_access SET status = 'former', updated_at = now()
+      WHERE member_id = $1 AND status = 'member'`,
+    [memberId],
+  );
   return member;
 }
 

@@ -7,6 +7,11 @@ import {
   listProjects,
   updateProjectClient,
 } from '../services/projects.js';
+import { viewerOf } from '../services/access.js';
+import {
+  refreshMemberAccessQuietly,
+  type AccessCheckDeps,
+} from '../services/accessCheck.js';
 import { deleteBudget, getBudget, upsertBudget } from '../services/budgets.js';
 import {
   getProjectBudgetSummary,
@@ -33,16 +38,19 @@ const budgetSchema = z.object({
 export type ProjectRouteDeps = {
   db: Db;
   projectionHorizonDays: number;
+  access: AccessCheckDeps;
 };
 
 export function projectRoutes(app: FastifyInstance, deps: ProjectRouteDeps): void {
-  const { db, projectionHorizonDays } = deps;
+  const { db, projectionHorizonDays, access } = deps;
   const anyMember = app.authenticate;
   const managerOnly = app.requireRole('manager', 'administrator');
 
   app.get('/api/projects', { preHandler: anyMember }, async (request) => {
     const query = request.query as { withBudget?: string };
-    const projects = await listProjects(db, request.member!.organisation_id);
+    await refreshMemberAccessQuietly(access, request.member!);
+    const viewer = viewerOf(request.member!);
+    const projects = await listProjects(db, request.member!.organisation_id, viewer);
 
     if (query.withBudget !== 'true') {
       return { projects };
@@ -82,6 +90,7 @@ export function projectRoutes(app: FastifyInstance, deps: ProjectRouteDeps): voi
       request.member!.organisation_id,
       id,
       parsed.data.clientId,
+      viewerOf(request.member!),
     );
     if (!project) {
       return reply.code(404).send({ error: 'project_not_found' });
@@ -95,7 +104,7 @@ export function projectRoutes(app: FastifyInstance, deps: ProjectRouteDeps): voi
     async (request, reply) => {
       const { id } = request.params as { id: string };
       const orgId = request.member!.organisation_id;
-      const project = await getProject(db, orgId, id);
+      const project = await getProject(db, orgId, id, viewerOf(request.member!));
       if (!project) {
         return reply.code(404).send({ error: 'project_not_found' });
       }
@@ -115,7 +124,7 @@ export function projectRoutes(app: FastifyInstance, deps: ProjectRouteDeps): voi
     async (request, reply) => {
       const { id } = request.params as { id: string };
       const orgId = request.member!.organisation_id;
-      const project = await getProject(db, orgId, id);
+      const project = await getProject(db, orgId, id, viewerOf(request.member!));
       if (!project) {
         return reply.code(404).send({ error: 'project_not_found' });
       }
@@ -142,6 +151,7 @@ export function projectRoutes(app: FastifyInstance, deps: ProjectRouteDeps): voi
         price: parsed.data.price ?? null,
         profitTargetPercent: parsed.data.profitTargetPercent ?? null,
         marginTargetAmount: parsed.data.marginTargetAmount ?? null,
+        viewer: viewerOf(request.member!),
       });
       return { budget };
     },
@@ -156,6 +166,7 @@ export function projectRoutes(app: FastifyInstance, deps: ProjectRouteDeps): voi
         organisationId: request.member!.organisation_id,
         actorMemberId: request.member!.id,
         projectId: id,
+        viewer: viewerOf(request.member!),
       });
       if (!removed) {
         return reply.code(404).send({ error: 'budget_not_found' });

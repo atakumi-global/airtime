@@ -3,7 +3,7 @@ import { after, before, beforeEach, test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { FastifyInstance } from 'fastify';
 import { hashMember } from '../src/services/feedback.js';
-import { auth, getDb, login, makeApp, resetData, seed, setupSchema } from './helpers.js';
+import { auth, getDb, login, makeApp, resetData, seed, setupSchema, grantProjectAccess } from './helpers.js';
 
 let app: FastifyInstance;
 
@@ -29,6 +29,7 @@ async function createWorkItem(organisationId: string): Promise<void> {
      VALUES ($1, $2, 'plane-p1', 'Website', 'WEB')`,
     [projectId, organisationId],
   );
+  await grantProjectAccess(organisationId, projectId);
   await db.query(
     `INSERT INTO work_items
        (id, organisation_id, project_id, plane_work_item_id, identifier, name, is_open)
