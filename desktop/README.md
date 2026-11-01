@@ -78,7 +78,7 @@ tauri-utils 2.10.0) and by compiling for `x86_64-pc-windows-gnu`.
 | Drag region, double-click to maximise | Supported; needs `core:window:allow-start-dragging` (set) and `allow-internal-toggle-maximize` (in `core:default`) | tauri 2.12.0 permission reference | Permission ids validated by the build script |
 | Minimise / maximise / close from the webview | Supported; needs `allow-minimize`, `allow-toggle-maximize`, `allow-close` (set) | tauri 2.12.0 permission reference | Permission ids validated by the build script |
 | Intercept close (`CloseRequested`, `prevent_close`) | Supported | `Window::close` docs: emits CloseRequested first | Compiles; not run |
-| Notifications | Not part of this item | n/a | n/a |
+| Toast notifications with action buttons | Supported through `tauri-winrt-notification` (see AIRTIME-36 below); the `tauri-plugin-notification` plugin was not used so the shell decides when to withhold a toast and handles the click itself, with no extra webview permission | Compiles for Windows; not run | n/a |
 
 Verified here (Linux sandbox): the crate type-checks for `x86_64-pc-windows-gnu`
 with the `tray-icon` feature, the capability file resolves, the pure tray model
@@ -93,3 +93,53 @@ frameless window (including the Windows 11 border), WebView2 timer throttling
 while hidden, and high-DPI icon sharpness (the icon is drawn at 32x32). These
 need one manual pass on Windows with `npm run tauri dev`; the checklist is in
 HANDOVER.md.
+
+## Shell: desktop notifications with actions (AIRTIME-36)
+
+Three notifications mirror the in-app feedback, each with exactly one action
+(v2 `shell.html`, Notifications):
+
+| Tone | Raised when | Text | Action |
+| --- | --- | --- | --- |
+| Success | Stopping the timer creates an entry | "Entry saved", "1h 30m on AV-142" | **View** opens My time |
+| Warning | A project's margin falls from on target to below target | "Margin below target", "Aviation Ops is EUR 1,200 under target" | **Open** opens Projects |
+| Error | The timer disappears and this app did not stop it | "Timer stopped unexpectedly", "Was tracking AV-142. Restart to keep going." | **Restart** starts that work item again |
+
+- **Where it lives.** `src/components/NotificationBridge.tsx` watches the app
+  state and asks for a notification through `src/lib/notifications.ts` (pure
+  builders, tested) and the `notify` command. `src-tauri/src/notify/model.rs`
+  is the pure decision model (tone to action, validation, when to withhold);
+  `notify/mod.rs` is the Windows glue (`tauri-winrt-notification`, the Tauri
+  project's WinRT toast wrapper). The action of a tone is fixed
+  in Rust, so the webview cannot attach another one. Clicking the toast, or its
+  button, sends `notification-action` back to the webview; View and Open also
+  bring the window forward, Restart does not.
+- **Never for something already visible.** The shell withholds a notification
+  while the main window is visible, not minimised and focused. The in-app banner
+  remains the message then. Closed to the tray, minimised or behind another
+  window counts as out of view.
+- **Focus Assist.** Before raising a toast the shell asks Windows
+  (`SHQueryUserNotificationState`). Quiet hours / Focus Assist, a full-screen
+  app, a presentation or a game withhold the toast (`focus-assist` delivery);
+  nothing is queued, so nothing appears later out of context. A routine success
+  is also silent (no sound); warnings and errors use the system sound.
+- **Reduced motion.** The app draws no notification of its own and adds no
+  animation: the toast is a native Windows toast, so its slide-in follows the
+  Windows setting Accessibility, Visual effects, Animation effects. Nothing in
+  the web UI animates for notifications.
+- **Not raised on purpose.** The first load after boot or sign-in (state comes
+  from the on-device cache, so changes since are not news); a start that fails
+  and drops its optimistic timer; a stop that fails offline and is queued; an
+  entry that arrives from elsewhere in a refresh.
+- **Identity.** A packaged (release) build uses the app identifier
+  `com.atakumi.airtime` as the toast's AppUserModelID; a `tauri dev` build is
+  not installed, so it borrows the PowerShell identity (the wrapper's documented fallback).
+  Whether the NSIS installer registers that identifier with the Start menu
+  shortcut so toasts show the Airtime name and icon in a release build is not
+  verified here.
+
+Verified on Linux: the notify module compiles for `x86_64-pc-windows-gnu`; the
+pure model passes 14 Rust unit tests in a standalone harness (the crate cannot
+link without GTK/WebKit); the web side passes lint, tests and build. Not
+verified (no Windows host): a toast actually appearing, its button and body
+click, Focus Assist and full-screen suppression, and the sound.
