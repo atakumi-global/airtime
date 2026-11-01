@@ -74,6 +74,14 @@
   its result. "Should work" is not evidence, and an agent's success report is a
   claim, not a check.
 - Never claim a check you did not run. If something was skipped, say so.
+- **Tester's guide.** Every item that moves to **In Review** gets a Plane comment
+  `## How to test` with **Where** (environment, exact URL or build and how to open it,
+  e.g. `review <project> start`), **Before you start** (account, role, test data),
+  numbered **Steps** (real menu labels, buttons and sample values), **Expected** (what
+  the tester sees after each step, matching the acceptance criteria) and **Not covered**
+  (what you could not check). Written for a QA person who did not see the work: it must
+  be obvious where to go, what to do and what to look for. Agents on the agent server
+  cannot set In Review without it.
 
 ### Engineering discipline (non-negotiable)
 
@@ -161,8 +169,13 @@ finding; those need the owner.
   repository's `.devcontainer/`. You may run the project's services, containers,
   browsers and Playwright inside it. Outbound network is an allowlist; a blocked
   request is expected — report it, do not work around it.
-- **Start, stop and restart always go through the project's stack script** (the
-  `.ps1` on the laptop, `./stack.sh` in a sandbox). Never hand-spawn dev servers.
+- **Start, stop and restart always go through the project's stack script**
+  (`./stack.sh start|stop|restart|status|url|logs`, see `STACK.md`; on the owner's
+  Windows laptop the project's `.ps1` may wrap it). Never hand-spawn dev servers or
+  containers. Everything binds to `127.0.0.1` on the project's registry ports.
+- **On the agent server you do not run the stack in your workspace.** Run tests and
+  gates there; the dev preview restarts the stack from `dev` automatically after
+  you push, and the owner looks at it there.
 - **Owner WIP is sacred:** when a repo has uncommitted or unpushed work, use a
   worktree rather than touching the working tree.
 
@@ -178,7 +191,8 @@ finding; those need the owner.
   stage and production promotion is a manual GitHub action. The agent never promotes.
 - The full sequence lives in `WORKFLOW.md` — including updating local `dev` from
   `origin/dev`, merging it back into the feature, running the gate and
-  `factory-check` on that exact tree, then restarting the local stack.
+  `factory-check` on that exact tree, then restarting the local stack (on the
+  agent server: none; the dev preview follows `dev`).
   `finish-work.ps1` / `finish-work.sh` perform it. Per-repo exceptions (protected
   `dev`, pushes that auto-deploy) are recorded in the project section of this file.
 
