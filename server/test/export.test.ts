@@ -63,6 +63,7 @@ test('a manager can export filtered time entries as CSV', async () => {
       scope: 'project',
       projectId: a.projectId,
       currency: 'USD',
+      fromDate: '2020-01-01',
       hourlyAmount: 60,
     },
   });

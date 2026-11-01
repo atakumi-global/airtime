@@ -126,6 +126,7 @@ test('a manager changing a rate writes an audit record', async () => {
       scope: 'member',
       memberId: member.id,
       currency: 'usd',
+      fromDate: '2020-01-01',
       hourlyAmount: 120,
     },
   });

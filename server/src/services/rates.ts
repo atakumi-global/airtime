@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { Db } from '../db/pool.js';
 import { writeAudit } from './audit.js';
 
-export type RateScope = 'member' | 'project' | 'client';
+export type RateScope = 'member' | 'project' | 'project_member';
 
 export type RateRow = {
   id: string;
@@ -10,7 +10,7 @@ export type RateRow = {
   scope: RateScope;
   member_id: string | null;
   project_id: string | null;
-  client_id: string | null;
+  from_date: string;
   currency: string;
   hourly_amount: string;
   created_at: Date;
@@ -23,69 +23,78 @@ export type UpsertRateInput = {
   scope: RateScope;
   memberId?: string | null;
   projectId?: string | null;
-  clientId?: string | null;
+  fromDate: string;
   currency: string;
   hourlyAmount: number;
 };
+
+// `from_date` is a plain calendar date; it is selected as text so the driver never
+// shifts it through the server time zone.
+const RATE_COLUMNS = `id, organisation_id, scope, member_id, project_id,
+  to_char(from_date, 'YYYY-MM-DD') AS from_date, currency, hourly_amount,
+  created_at, updated_at`;
 
 export async function listRates(
   db: Db,
   organisationId: string,
 ): Promise<RateRow[]> {
   return db.query<RateRow>(
-    'SELECT * FROM rates WHERE organisation_id = $1 ORDER BY scope ASC, created_at ASC',
+    `SELECT ${RATE_COLUMNS} FROM rates WHERE organisation_id = $1
+      ORDER BY scope ASC, from_date DESC, created_at ASC`,
     [organisationId],
   );
 }
 
-function referenceColumn(input: UpsertRateInput): {
-  column: 'member_id' | 'project_id' | 'client_id';
-  value: string;
+function httpError(message: string, statusCode: number): Error {
+  return Object.assign(new Error(message), { statusCode });
+}
+
+function requireReferences(input: UpsertRateInput): {
+  memberId: string | null;
+  projectId: string | null;
 } {
   if (input.scope === 'member') {
     if (!input.memberId) {
-      throw Object.assign(new Error('member rate requires memberId'), {
-        statusCode: 400,
-      });
+      throw httpError('member rate requires memberId', 400);
     }
-    return { column: 'member_id', value: input.memberId };
+    return { memberId: input.memberId, projectId: null };
   }
   if (input.scope === 'project') {
     if (!input.projectId) {
-      throw Object.assign(new Error('project rate requires projectId'), {
-        statusCode: 400,
-      });
+      throw httpError('project rate requires projectId', 400);
     }
-    return { column: 'project_id', value: input.projectId };
+    return { memberId: null, projectId: input.projectId };
   }
-  if (!input.clientId) {
-    throw Object.assign(new Error('client rate requires clientId'), {
-      statusCode: 400,
-    });
+  if (input.scope === 'project_member') {
+    if (!input.memberId || !input.projectId) {
+      throw httpError('project_member rate requires memberId and projectId', 400);
+    }
+    return { memberId: input.memberId, projectId: input.projectId };
   }
-  return { column: 'client_id', value: input.clientId };
+  throw httpError('unsupported rate scope', 400);
 }
 
-async function assertReferenceBelongsToOrg(
+async function assertReferencesBelongToOrg(
   db: Db,
-  input: UpsertRateInput,
+  organisationId: string,
+  refs: { memberId: string | null; projectId: string | null },
 ): Promise<void> {
-  if (input.scope === 'member') {
+  if (refs.memberId) {
     const rows = await db.query(
       'SELECT 1 FROM members WHERE id = $1 AND organisation_id = $2',
-      [input.memberId, input.organisationId],
+      [refs.memberId, organisationId],
     );
     if (!rows[0]) {
-      throw Object.assign(new Error('member not found'), { statusCode: 404 });
+      throw httpError('member not found', 404);
     }
   }
-  if (input.scope === 'project') {
+  if (refs.projectId) {
     const rows = await db.query(
       'SELECT 1 FROM projects WHERE id = $1 AND organisation_id = $2',
-      [input.projectId, input.organisationId],
+      [refs.projectId, organisationId],
     );
     if (!rows[0]) {
-      throw Object.assign(new Error('project not found'), { statusCode: 404 });
+      throw httpError('project not found', 404);
     }
   }
 }
@@ -94,13 +103,20 @@ export async function upsertRate(
   db: Db,
   input: UpsertRateInput,
 ): Promise<RateRow> {
-  await assertReferenceBelongsToOrg(db, input);
-  const { column, value } = referenceColumn(input);
+  const refs = requireReferences(input);
+  await assertReferencesBelongToOrg(db, input.organisationId, refs);
 
   return db.withTransaction(async (client) => {
+    // Same scope, same target and same from-date is the same rate: update it.
     const existing = await client.query<RateRow>(
-      `SELECT * FROM rates WHERE organisation_id = $1 AND ${column} = $2 FOR UPDATE`,
-      [input.organisationId, value],
+      `SELECT ${RATE_COLUMNS} FROM rates
+        WHERE organisation_id = $1
+          AND scope = $2
+          AND member_id IS NOT DISTINCT FROM $3::uuid
+          AND project_id IS NOT DISTINCT FROM $4::uuid
+          AND from_date = $5::date
+        FOR UPDATE`,
+      [input.organisationId, input.scope, refs.memberId, refs.projectId, input.fromDate],
     );
     const before = existing.rows[0] ?? null;
 
@@ -109,21 +125,21 @@ export async function upsertRate(
           `UPDATE rates
               SET currency = $1, hourly_amount = $2, updated_at = now()
             WHERE id = $3
-            RETURNING *`,
+            RETURNING ${RATE_COLUMNS}`,
           [input.currency.toUpperCase(), input.hourlyAmount, before.id],
         )
       : await client.query<RateRow>(
           `INSERT INTO rates
-             (id, organisation_id, scope, member_id, project_id, client_id, currency, hourly_amount)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-           RETURNING *`,
+             (id, organisation_id, scope, member_id, project_id, from_date, currency, hourly_amount)
+           VALUES ($1, $2, $3, $4, $5, $6::date, $7, $8)
+           RETURNING ${RATE_COLUMNS}`,
           [
             randomUUID(),
             input.organisationId,
             input.scope,
-            input.memberId ?? null,
-            input.projectId ?? null,
-            input.clientId ?? null,
+            refs.memberId,
+            refs.projectId,
+            input.fromDate,
             input.currency.toUpperCase(),
             input.hourlyAmount,
           ],
@@ -150,7 +166,7 @@ export async function deleteRate(
 ): Promise<boolean> {
   return db.withTransaction(async (client) => {
     const existing = await client.query<RateRow>(
-      'SELECT * FROM rates WHERE organisation_id = $1 AND id = $2 FOR UPDATE',
+      `SELECT ${RATE_COLUMNS} FROM rates WHERE organisation_id = $1 AND id = $2 FOR UPDATE`,
       [input.organisationId, input.rateId],
     );
     const before = existing.rows[0];

@@ -92,7 +92,7 @@ Sign in as the bootstrap administrator from `.env` and check:
   `1d` (8h), `1w` (40h), `0.5d`, `+15m`; parsed value echoed; save blocked while
   invalid.
 - **Projects** — set or edit a budget per project; budget health, burn and flags.
-- **Budgets** — set member, project or client rates.
+- **Rates** — dated member, project and project + member rates plus an administrator-set default hourly rate (AIRTIME-89); client rates are removed.
 - **Reports** — filter by date/project/member and export CSV.
 - **Admin** — add/role/remove members, read the audit log, review and export the
   anonymised feedback dataset.

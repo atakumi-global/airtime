@@ -85,7 +85,12 @@ export type BudgetSummary = {
   marginTargetAmount: number | null;
   marginTargetMet: boolean | null;
   billableMinutes: number;
-  costByScope: { member: number; project: number; client: number };
+  costByScope: {
+    member: number;
+    project: number;
+    projectMember: number;
+    default: number;
+  };
   weeklyCost: Array<{ weekStart: string; cost: number }>;
   currency: string;
   currencyTotals: Record<string, number>;
@@ -214,6 +219,7 @@ export type Organisation = {
   id: string;
   name: string;
   reportingCurrency: string;
+  defaultHourlyRate: number;
 };
 
 export type Budget = {
@@ -226,14 +232,14 @@ export type Budget = {
   margin_target_amount: string | null;
 };
 
-export type RateScope = 'member' | 'project' | 'client';
+export type RateScope = 'member' | 'project' | 'project_member';
 
 export type Rate = {
   id: string;
   scope: RateScope;
   member_id: string | null;
   project_id: string | null;
-  client_id: string | null;
+  from_date: string;
   currency: string;
   hourly_amount: string;
 };

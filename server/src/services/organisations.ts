@@ -5,6 +5,7 @@ export type OrganisationRow = {
   id: string;
   name: string;
   reporting_currency: string;
+  default_hourly_rate: string;
   created_at: Date;
   updated_at: Date;
 };
@@ -28,6 +29,20 @@ export async function updateReportingCurrency(
       WHERE id = $2
       RETURNING *`,
     [reportingCurrency.toUpperCase(), organisationId],
+  );
+  return rows[0];
+}
+
+export async function updateDefaultHourlyRate(
+  db: Db,
+  organisationId: string,
+  defaultHourlyRate: number,
+): Promise<OrganisationRow | undefined> {
+  const rows = await db.query<OrganisationRow>(
+    `UPDATE organisations SET default_hourly_rate = $1, updated_at = now()
+      WHERE id = $2
+      RETURNING *`,
+    [defaultHourlyRate, organisationId],
   );
   return rows[0];
 }

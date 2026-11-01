@@ -93,9 +93,12 @@ their history survives, and members can only change their own entries.
 A time-and-materials budget is an amount and currency per project, set with
 `PUT /api/projects/:id/budget`, optionally with `price`, `profitTargetPercent`
 and `marginTargetAmount`. Time is costed at read time using the most specific
-rate available: a member rate, then a project rate, then a client rate
-(`clientId` on a project), otherwise the entry is uncosted and excluded from cost
-totals.
+rate in effect on the entry's UTC date: a project + member rate, then a project
+rate, then a member rate, then the organisation default hourly rate (NZD 200 unless
+an administrator changes it with `PATCH /api/organisation`). Every rate has a
+required `fromDate` (`PUT /api/rates`) and applies from that date until a later-dated
+rate for the same target replaces it; if none is in effect the next level is tried.
+Changing, back-dating or deleting a rate recosts history on the next read.
 
 `GET /api/projects/:id/summary` returns spend, remaining, percent used, uncosted
 hours, any totals in other currencies, the current burn rate per day and a
@@ -104,8 +107,8 @@ projected overrun or underrun. It also returns the financial model: `margin`
 targets with a met flag. Profit and its target are null until a price is set.
 Cost (`spent`) is costed time (`labourCost`) plus expenses (`expenses`, see
 Expenses below). The cost build-up
-comes back as `billableMinutes`, `costByScope` (cost at member, project or
-client rate level) and `weeklyCost`, the converted cost per ISO week for the
+comes back as `billableMinutes`, `costByScope` (cost at member, project,
+project + member or default rate level) and `weeklyCost`, the converted cost per ISO week for the
 last 12 weeks, which backs the burn chart. The projection runs
 from today to the project's `target_date` synced from Plane; `projectionBasis`
 reports `project_end_date` when that date is used. Only when a Plane project has
