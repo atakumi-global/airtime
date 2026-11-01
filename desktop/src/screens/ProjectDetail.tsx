@@ -441,14 +441,16 @@ export function ProjectDetail({
                   <span className="small muted">At project cost level</span>
                   <span className="mono small">{money(summary.costByScope.project)}</span>
                 </div>
-                {summary.costByScope.client > 0 ? (
-                  <div className="row-between">
-                    <span className="small muted">At client cost level</span>
-                    <span className="mono small">
-                      {money(summary.costByScope.client)}
-                    </span>
-                  </div>
-                ) : null}
+                <div className="row-between">
+                  <span className="small muted">At project + member cost level</span>
+                  <span className="mono small">
+                    {money(summary.costByScope.projectMember)}
+                  </span>
+                </div>
+                <div className="row-between">
+                  <span className="small muted">At default cost level</span>
+                  <span className="mono small">{money(summary.costByScope.default)}</span>
+                </div>
                 <hr className="divider" />
                 <div className="row-between">
                   <span className="small strong">Cost</span>

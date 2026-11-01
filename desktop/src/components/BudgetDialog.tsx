@@ -227,7 +227,7 @@ export function BudgetDialog({
             <p className="muted small">
               Price sets Profit (price minus cost) and the profit target; the
               margin target is measured against cost. Time is costed at the most
-              specific rate: member, then project, then client. Amounts in other
+              specific rate: project + member, then project, then member, then the default rate. Amounts in other
               currencies convert at the daily FX rate.
             </p>
 

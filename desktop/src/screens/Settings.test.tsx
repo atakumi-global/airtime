@@ -148,6 +148,55 @@ describe('Settings', () => {
     expect(await screen.findByText('unsupported currency')).toBeTruthy();
   });
 
+  it('shows the default hourly rate and lets an administrator save a new one (happy path)', async () => {
+    const { server } = await setup(ADMIN);
+    expect(field('Default hourly rate (NZD)').value).toBe('200');
+    server.on('PATCH /api/organisation', () => ({
+      organisation: {
+        id: 'org-1',
+        name: 'Example Org',
+        reportingCurrency: 'EUR',
+        defaultHourlyRate: 250,
+      },
+    }));
+
+    fireEvent.change(field('Default hourly rate (NZD)'), { target: { value: '250' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save default rate' }));
+
+    expect(await screen.findByText('Default hourly rate set to 250 NZD.')).toBeTruthy();
+    expect(server.callsTo('PATCH /api/organisation')[0]?.body).toEqual({ defaultHourlyRate: 250 });
+  });
+
+  it('never saves a blank or negative default rate', async () => {
+    const { server } = await setup(ADMIN);
+
+    fireEvent.change(field('Default hourly rate (NZD)'), { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save default rate' }));
+    expect(
+      await screen.findByText('Enter a default hourly rate of zero or more. It cannot be blank.'),
+    ).toBeTruthy();
+
+    fireEvent.change(field('Default hourly rate (NZD)'), { target: { value: '-5' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save default rate' }));
+    expect(server.callsTo('PATCH /api/organisation')).toHaveLength(0);
+  });
+
+  it('shows the server message when the default rate cannot be saved (error path)', async () => {
+    const { server } = await setup(ADMIN);
+    server.on('PATCH /api/organisation', () => reject(400, 'invalid_request'));
+
+    fireEvent.change(field('Default hourly rate (NZD)'), { target: { value: '10' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save default rate' }));
+
+    expect(await screen.findByText('invalid_request')).toBeTruthy();
+  });
+
+  it('shows a manager the default rate read-only', async () => {
+    await setup(MANAGER);
+    expect(field('Default hourly rate (NZD)').disabled).toBe(true);
+    expect(screen.queryByRole('button', { name: 'Save default rate' })).toBeNull();
+  });
+
   it('refreshes the FX rates (happy path)', async () => {
     const { server } = await setup(ADMIN);
     server.on('POST /api/fx/refresh', () => ({ refreshed: true, stored: 30, date: '2026-09-02' }));

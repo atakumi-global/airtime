@@ -15,12 +15,16 @@ export function Settings() {
     savePlaneConnection,
     syncPlane,
     updateReportingCurrency,
+    updateDefaultHourlyRate,
     refreshFx,
   } = useApp();
 
   const canAdmin = member?.role === 'administrator';
   const [currency, setCurrency] = useState(
     organisation?.reportingCurrency ?? 'EUR',
+  );
+  const [defaultRate, setDefaultRate] = useState(
+    String(organisation?.defaultHourlyRate ?? 200),
   );
   const [fxBusy, setFxBusy] = useState(false);
   const [fxMessage, setFxMessage] = useState<string | null>(null);
@@ -86,6 +90,29 @@ export function Settings() {
     }
   };
 
+  const saveDefaultRate = async () => {
+    const value = Number(defaultRate);
+    if (defaultRate.trim() === '' || !Number.isFinite(value) || value < 0) {
+      setError('Enter a default hourly rate of zero or more. It cannot be blank.');
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      await updateDefaultHourlyRate(value);
+      setMessage(`Default hourly rate set to ${value} NZD.`);
+    } catch (rateError) {
+      setError(
+        rateError instanceof Error
+          ? rateError.message
+          : 'Could not update the default hourly rate',
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const refreshRates = async () => {
     setFxBusy(true);
     setFxMessage(null);
@@ -111,7 +138,11 @@ export function Settings() {
       </div>
 
       {message ? <div className="banner">{message}</div> : null}
-      {error ? <div className="banner banner-error">{error}</div> : null}
+      {error ? (
+        <div className="banner banner-error" role="alert">
+          {error}
+        </div>
+      ) : null}
 
       <section className="card card-pad stack">
         <h2>Account</h2>
@@ -205,6 +236,35 @@ export function Settings() {
                 {fxBusy ? 'Refreshing…' : 'Refresh FX rates'}
               </button>
             </>
+          ) : null}
+        </div>
+        <div className="row" style={{ alignItems: 'flex-end', flexWrap: 'wrap' }}>
+          <div style={{ flex: 1, minWidth: 160 }}>
+            <Field
+              label="Default hourly rate (NZD)"
+              hint="Applies when no dated rate does."
+            >
+              <input
+                className="input"
+                type="number"
+                min={0}
+                step="0.01"
+                required
+                value={defaultRate}
+                disabled={!canAdmin}
+                onChange={(event) => setDefaultRate(event.target.value)}
+              />
+            </Field>
+          </div>
+          {canAdmin ? (
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => void saveDefaultRate()}
+              disabled={busy || Number(defaultRate) === organisation?.defaultHourlyRate}
+            >
+              Save default rate
+            </button>
           ) : null}
         </div>
         {fxMessage ? <div className="banner">{fxMessage}</div> : null}

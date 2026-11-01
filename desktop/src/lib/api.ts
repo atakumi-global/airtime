@@ -309,6 +309,14 @@ export class ApiClient {
     return body.organisation;
   }
 
+  async updateDefaultHourlyRate(rate: number): Promise<Organisation> {
+    const body = await this.request<{ organisation: Organisation }>(
+      '/api/organisation',
+      { method: 'PATCH', body: JSON.stringify({ defaultHourlyRate: rate }) },
+    );
+    return body.organisation;
+  }
+
   async budget(projectId: string): Promise<Budget | null> {
     const body = await this.request<{ budget: Budget | null }>(
       `/api/projects/${encodeURIComponent(projectId)}/budget`,
@@ -349,7 +357,7 @@ export class ApiClient {
     scope: RateScope;
     memberId?: string | null;
     projectId?: string | null;
-    clientId?: string | null;
+    fromDate: string;
     currency: string;
     hourlyAmount: number;
   }): Promise<Rate> {
