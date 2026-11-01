@@ -5,6 +5,8 @@ import {
   type ManualEntryInput,
 } from '../state/AppContext';
 import { enterable } from '../lib/workItemSearch';
+import { entryWorkspace } from '../lib/workspaces';
+import { WorkItemOptions } from '../components/WorkItemOptions';
 import { Metric, Badge } from '../components/ui';
 import { EntryDialog } from '../components/EntryDialog';
 import { KeyCaps } from '../components/KeyCaps';
@@ -101,6 +103,7 @@ export function Timesheet({ onBackfill }: { onBackfill: () => void }) {
     organisation,
     entries,
     workItems,
+    projects,
     updateEntry,
     addManualEntries,
   } = useApp();
@@ -498,6 +501,9 @@ export function Timesheet({ onBackfill }: { onBackfill: () => void }) {
                     <td className="mono">{formatDate(entry.started_at)}</td>
                     <td>
                       {workItemLabel(entry, workItems)}
+                      {entryWorkspace(entry, projects) ? (
+                        <span className="muted small"> · {entryWorkspace(entry, projects)}</span>
+                      ) : null}
                       {entry.source === 'timer' ? (
                         <>
                           {' '}
@@ -570,12 +576,7 @@ export function Timesheet({ onBackfill }: { onBackfill: () => void }) {
                           aria-label="Work item"
                         >
                           <option value="">No work item</option>
-                          {enterable(workItems).map((item) => (
-                            <option key={item.id} value={item.plane_work_item_id}>
-                              {item.identifier ? `${item.identifier} · ` : ''}
-                              {item.name}
-                            </option>
-                          ))}
+                          <WorkItemOptions items={enterable(workItems)} />
                         </select>
                         {rowErrors[row.key] ? (
                           <span className="err">{rowErrors[row.key]}</span>

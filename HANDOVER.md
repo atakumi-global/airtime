@@ -202,8 +202,7 @@ AIRTIME-1, 3, 4, 5, 7, 8, 9, 10, 16, 17–24, 26, 31, 32, 33, 53, 55.
 3. AIRTIME-43 project detail screen (needs 42 for the five-number summary; also
    closes the AIRTIME-6 caveat).
 4. AIRTIME-27 PDF export: template, then generation.
-5. AIRTIME-28 multi-workspace: server schema and sync first, then the desktop
-   workspace list, grouping and filters.
+5. AIRTIME-28 multi-workspace: built (server and desktop), awaiting review.
 6. Remaining QA-audit items (30, 34–52, 54, 56).
 7. Ask the PO to move AIRTIME-6 to Done.
 
@@ -216,6 +215,19 @@ AIRTIME-1, 3, 4, 5, 7, 8, 9, 10, 16, 17–24, 26, 31, 32, 33, 53, 55.
   entry. Administrators see all projects; managers only theirs. Details in
   README "Workspace access". AIRTIME-28 builds on `connectionWorkspaces()` and
   `project_access`.
+
+- AIRTIME-28 multi-workspace: a connection (base URL + account token) reads a
+  list of workspace slugs (`plane_connection_workspaces`, migration 013); each
+  slug is verified alone and one failure never stops the rest. Projects and work
+  items carry `workspace_slug`; webhooks are per workspace (Plane stores
+  webhooks per workspace and each delivery names it), and the old connection
+  webhook secret moved to the migrated workspace row, so existing webhook URLs
+  keep working. Plane UUIDs are primary keys generated per record
+  (`BaseModel.id = UUIDField(default=uuid4, unique=True)`), so the existing
+  `(organisation_id, plane_*_id)` keys stay. Archived projects are synced,
+  flagged and refuse new time. Visibility follows AIRTIME-90 (project
+  membership; administrators see all). Totals per project and per workspace.
+  Details in README "Plane connection and sync".
 
 - AIRTIME-16 v2 is the approved design; screens were implemented without
   per-screen checkpoints, then reviewed.

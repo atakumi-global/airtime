@@ -1,7 +1,7 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { SESSION_KEY } from '../lib/native';
-import { ADMIN, MANAGER, runningTimer } from '../test/fixtures';
+import { ADMIN, MANAGER, connection, runningTimer } from '../test/fixtures';
 import { field, renderReady } from '../test/harness';
 import { FakeServer, reject } from '../test/server';
 import { Settings } from './Settings';
@@ -13,8 +13,13 @@ async function setup(member = ADMIN) {
   return { server, ...mounted };
 }
 
+function addSlug(slug: string) {
+  fireEvent.change(field('Workspace slug'), { target: { value: slug } });
+  fireEvent.click(screen.getByRole('button', { name: 'Add workspace' }));
+}
+
 function connectForm() {
-  fireEvent.change(field('Workspace slug'), { target: { value: 'acme' } });
+  addSlug('acme');
   fireEvent.change(field('Personal API token'), { target: { value: 'plane_api_test' } });
 }
 
@@ -47,54 +52,154 @@ describe('Settings', () => {
     await waitFor(() => expect((screen.getByRole('checkbox') as HTMLInputElement).checked).toBe(true));
   });
 
-  it('connects Plane and reports the workspace (happy path)', async () => {
+  it('connects Plane with a list of workspaces and reports each (happy path)', async () => {
     const { server } = await setup();
     server.on('PUT /api/plane/connection', () => ({
-      workspace: { slug: 'acme', projectCount: 4 },
+      connection: connection({
+        workspaces: [
+          { ...connection().workspaces[0]!, slug: 'acme' },
+          { ...connection().workspaces[0]!, slug: 'beta' },
+        ],
+      }),
+      removedWorkspaces: [],
+      sync: { projects: 4, workItems: 9 },
+      warning: null,
     }));
 
-    connectForm();
+    addSlug('acme');
+    addSlug(' ACME ');
+    addSlug('beta');
+    expect(screen.getAllByRole('listitem')).toHaveLength(2);
+    fireEvent.change(field('Personal API token'), { target: { value: 'plane_api_test' } });
     fireEvent.click(screen.getByRole('button', { name: 'Connect and sync' }));
 
-    expect(await screen.findByText('Connected to acme (4 projects)')).toBeTruthy();
+    expect(await screen.findByText('Connected to 2 of 2 workspaces')).toBeTruthy();
     expect(server.callsTo('PUT /api/plane/connection')[0]?.body).toEqual({
       baseUrl: 'https://plane.example.com',
-      workspaceSlug: 'acme',
+      workspaceSlugs: ['acme', 'beta'],
       token: 'plane_api_test',
     });
     // The token field is cleared once it has been sent.
     expect((field('Personal API token') as HTMLInputElement).value).toBe('');
   });
 
-  it('shows the server message when Plane rejects the connection (error path)', async () => {
+  it('shows the state of each slug as text, and the reason when one failed', async () => {
+    const server = new FakeServer();
+    server.on('GET /api/plane/connection', () => ({
+      connection: connection({
+        workspaces: [
+          connection().workspaces[0]!,
+          {
+            ...connection().workspaces[0]!,
+            slug: 'private',
+            status: 'failed',
+            errorCategory: 'unauthorised',
+            error: 'Plane refused the token for this workspace.',
+            webhookPath: null,
+          },
+        ],
+      }),
+    }));
+    await renderReady(<Settings />);
+
+    expect(screen.getByText('Verified')).toBeTruthy();
+    expect(screen.getByText('Failed')).toBeTruthy();
+    expect(screen.getByText('Plane refused the token for this workspace.')).toBeTruthy();
+    expect(screen.getByText('Webhook /api/plane/webhook/secret-acme')).toBeTruthy();
+  });
+
+  it('adds and removes slugs with buttons, and rejects an empty or malformed slug', async () => {
+    await setup();
+    fireEvent.click(screen.getByRole('button', { name: 'Add workspace' }));
+    expect((await screen.findByRole('alert')).textContent).toContain('Enter a workspace slug.');
+
+    addSlug('not a slug!');
+    expect((await screen.findByRole('alert')).textContent).toContain('letters, numbers');
+
+    addSlug('acme');
+    addSlug('ACME');
+    expect((await screen.findByRole('alert')).textContent).toContain('already in the list');
+    expect(screen.getAllByRole('listitem')).toHaveLength(1);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove workspace acme' }));
+    expect(screen.queryAllByRole('listitem')).toHaveLength(0);
+    expect(screen.getByText('No workspace added yet.')).toBeTruthy();
+  });
+
+  it('shows which slugs could not be read when Plane rejects every one (error path)', async () => {
     const { server } = await setup();
-    server.on('PUT /api/plane/connection', () => reject(400, 'plane token invalid'));
+    server.on('PUT /api/plane/connection', () =>
+      new Response(
+        JSON.stringify({
+          error: 'plane_verification_failed',
+          workspaces: [
+            { slug: 'acme', status: 'failed', errorCategory: 'not_found', error: 'Plane has no workspace with this slug.' },
+          ],
+        }),
+        { status: 400, headers: { 'content-type': 'application/json' } },
+      ),
+    );
 
     connectForm();
     fireEvent.click(screen.getByRole('button', { name: 'Connect and sync' }));
 
-    expect(await screen.findByText('plane token invalid')).toBeTruthy();
+    expect(
+      await screen.findByText('No workspace could be read. acme: Plane has no workspace with this slug.'),
+    ).toBeTruthy();
   });
 
-  it('keeps Connect disabled until the slug and token are filled in, and Sync disabled until connected', async () => {
+  it('shows the server message when the save fails (error path)', async () => {
+    const { server } = await setup();
+    server.on('PUT /api/plane/connection', () => reject(400, 'empty_workspace_slug'));
+
+    connectForm();
+    fireEvent.click(screen.getByRole('button', { name: 'Connect and sync' }));
+
+    expect(await screen.findByText('empty_workspace_slug')).toBeTruthy();
+  });
+
+  it('keeps Connect disabled until a slug and a token are given, and Sync disabled until connected', async () => {
     await setup();
     expect((screen.getByRole('button', { name: 'Connect and sync' }) as HTMLButtonElement).disabled).toBe(true);
     expect((screen.getByRole('button', { name: 'Sync now' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('button', { name: 'Verify all' }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('lets the stored token stand when only the slug list is edited', async () => {
+    const server = new FakeServer();
+    server.on('GET /api/plane/connection', () => ({ connection: connection() }));
+    server.on('PUT /api/plane/connection', () => ({
+      connection: connection(),
+      removedWorkspaces: [],
+      sync: null,
+      warning: null,
+    }));
+    await renderReady(<Settings />);
+
+    addSlug('beta');
+    fireEvent.click(screen.getByRole('button', { name: 'Connect and sync' }));
+
+    await screen.findByText(/Connected to/);
+    expect(server.callsTo('PUT /api/plane/connection')[0]?.body).toEqual({
+      baseUrl: 'https://plane.acme.test',
+      workspaceSlugs: ['acme', 'beta'],
+    });
+  });
+
+  it('re-checks every slug with Verify all', async () => {
+    const server = new FakeServer();
+    server.on('GET /api/plane/connection', () => ({ connection: connection() }));
+    server.on('POST /api/plane/workspaces/verify', () => ({ connection: connection() }));
+    await renderReady(<Settings />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Verify all' }));
+
+    expect(await screen.findByText('1 of 1 workspaces verified')).toBeTruthy();
   });
 
   it('syncs an existing connection (happy path)', async () => {
     const server = new FakeServer();
-    server.on('GET /api/plane/connection', () => ({
-      connection: {
-        baseUrl: 'https://plane.acme.test',
-        workspaceSlug: 'acme',
-        status: 'active',
-        lastVerifiedAt: null,
-        lastSyncedAt: null,
-        lastError: null,
-        webhookPath: null,
-      },
-    }));
+    server.on('GET /api/plane/connection', () => ({ connection: connection() }));
     server.on('POST /api/plane/sync', () => ({ sync: { projects: 3, workItems: 17 } }));
     await renderReady(<Settings />);
 
@@ -104,19 +209,29 @@ describe('Settings', () => {
     expect(await screen.findByText('Synced 3 projects and 17 work items')).toBeTruthy();
   });
 
-  it('shows the server message when the sync fails (error path)', async () => {
+  it('names the workspaces that failed in a partly successful sync', async () => {
     const server = new FakeServer();
-    server.on('GET /api/plane/connection', () => ({
-      connection: {
-        baseUrl: 'https://plane.acme.test',
-        workspaceSlug: 'acme',
-        status: 'active',
-        lastVerifiedAt: null,
-        lastSyncedAt: null,
-        lastError: null,
-        webhookPath: null,
+    server.on('GET /api/plane/connection', () => ({ connection: connection() }));
+    server.on('POST /api/plane/sync', () => ({
+      sync: {
+        projects: 3,
+        workItems: 17,
+        workspaces: [
+          { slug: 'acme', status: 'ok', projects: 3, workItems: 17, error: null },
+          { slug: 'beta', status: 'failed', projects: 0, workItems: 0, error: 'Plane could not be reached.' },
+        ],
       },
     }));
+    await renderReady(<Settings />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sync now' }));
+
+    expect(await screen.findByText('Synced 3 projects and 17 work items; beta failed')).toBeTruthy();
+  });
+
+  it('shows the server message when the sync fails (error path)', async () => {
+    const server = new FakeServer();
+    server.on('GET /api/plane/connection', () => ({ connection: connection() }));
     server.on('POST /api/plane/sync', () => reject(502, 'plane unreachable'));
     await renderReady(<Settings />);
 

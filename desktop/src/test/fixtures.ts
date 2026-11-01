@@ -4,6 +4,7 @@ import type {
   FxRates,
   Member,
   Organisation,
+  PlaneConnection,
   Project,
   QueuedEntry,
   RunningTimer,
@@ -59,6 +60,7 @@ export const WORK_ITEMS: WorkItem[] = [
     name: 'Build the landing page',
     state_group: 'started',
     is_open: true,
+    workspace_slug: 'acme',
     project_name: 'Website',
     project_identifier: 'WEB',
   },
@@ -70,10 +72,34 @@ export const WORK_ITEMS: WorkItem[] = [
     name: 'Fix the footer',
     state_group: 'unstarted',
     is_open: true,
+    workspace_slug: 'acme',
     project_name: 'Website',
     project_identifier: 'WEB',
   },
 ];
+
+export function connection(overrides: Partial<PlaneConnection> = {}): PlaneConnection {
+  return {
+    baseUrl: 'https://plane.acme.test',
+    workspaces: [
+      {
+        slug: 'acme',
+        status: 'verified',
+        errorCategory: null,
+        error: null,
+        projectCount: 2,
+        lastVerifiedAt: null,
+        lastSyncedAt: null,
+        webhookPath: '/api/plane/webhook/secret-acme',
+      },
+    ],
+    status: 'active',
+    lastVerifiedAt: null,
+    lastSyncedAt: null,
+    lastError: null,
+    ...overrides,
+  };
+}
 
 export function summary(overrides: Partial<BudgetSummary> = {}): BudgetSummary {
   return {
@@ -122,6 +148,7 @@ export const PROJECTS: Project[] = [
     id: 'project-1',
     organisation_id: 'org-1',
     plane_project_id: 'plane-project-1',
+    workspace_slug: 'acme',
     name: 'Website',
     identifier: 'WEB',
     archived: false,
@@ -134,6 +161,7 @@ export const PROJECTS: Project[] = [
     id: 'project-2',
     organisation_id: 'org-1',
     plane_project_id: 'plane-project-2',
+    workspace_slug: 'acme',
     name: 'Mobile app',
     identifier: 'APP',
     archived: false,

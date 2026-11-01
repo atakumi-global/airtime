@@ -1,5 +1,6 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import { WORK_ITEMS } from '../test/fixtures';
 import { field, renderReady } from '../test/harness';
 import { FakeServer, reject, unreachable } from '../test/server';
 import { BackfillDialog } from './BackfillDialog';
@@ -127,5 +128,40 @@ describe('BackfillDialog', () => {
     const { onClose } = setup();
     await renderReady(<BackfillDialog onClose={onClose} />);
     expect(screen.getByText('Control Enter', { selector: '.sr-only' })).toBeTruthy();
+  });
+
+  it('groups the work items by workspace, with the workspace as the group label', async () => {
+    const { server, onClose } = setup();
+    server.on('GET /api/plane/work-items', () => ({
+      workItems: [
+        { ...WORK_ITEMS[0]!, id: 'b1', plane_work_item_id: 'pw-b1', identifier: 'WEB-1', workspace_slug: 'beta' },
+        { ...WORK_ITEMS[0]!, id: 'a1', plane_work_item_id: 'pw-a1', identifier: 'WEB-1', workspace_slug: 'alpha' },
+      ],
+    }));
+    await renderReady(<BackfillDialog onClose={onClose} />);
+
+    const select = field<HTMLSelectElement>('Work item');
+    const groups = Array.from(select.querySelectorAll('optgroup')).map((group) => group.label);
+    expect(groups).toEqual(['alpha', 'beta']);
+    // The same identifier in two workspaces stays distinguishable by its group.
+    expect(select.querySelectorAll('optgroup[label="beta"] option')).toHaveLength(1);
+
+    fireEvent.change(select, { target: { value: 'pw-b1' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save entry' }));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect((server.callsTo('POST /api/time-entries')[0]!.body as { workItemId: string }).workItemId).toBe('pw-b1');
+  });
+
+  it('offers no item of an archived project', async () => {
+    const { server, onClose } = setup();
+    server.on('GET /api/plane/work-items', () => ({
+      workItems: [
+        { ...WORK_ITEMS[0]!, id: 'x1', plane_work_item_id: 'pw-x1', project_archived: true },
+        { ...WORK_ITEMS[1]!, id: 'x2', plane_work_item_id: 'pw-x2' },
+      ],
+    }));
+    await renderReady(<BackfillDialog onClose={onClose} />);
+    const values = Array.from(field<HTMLSelectElement>('Work item').options).map((option) => option.value);
+    expect(values).toEqual(['', 'pw-x2']);
   });
 });

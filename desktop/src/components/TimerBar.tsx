@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useApp } from '../state/AppContext';
 import { formatTimerElapsed } from '../lib/format';
 import { enterable } from '../lib/workItemSearch';
+import { workItemWorkspace } from '../lib/workspaces';
 import { useShortcut, useShortcuts } from '../state/ShortcutsContext';
 import { shortcutAria, ShortcutHint } from './KeyCaps';
 import { Badge } from './ui';
@@ -19,6 +20,7 @@ export function TimerBar() {
     online,
     queue,
     member,
+    projects,
   } = useApp();
   const [now, setNow] = useState(() => Date.now());
   // A running timer may sit on a history-only item; only new starts are limited.
@@ -44,6 +46,11 @@ export function TimerBar() {
           ? 'Timer running'
           : 'No timer running');
 
+  // The workspace comes from the server's timer, then the work item, then its project
+  // (an offline start or an older cache carries only some of them).
+  const workspace =
+    timer?.workspace_slug ?? (item ? workItemWorkspace(item, projects) : null) ?? null;
+
   const { bindings } = useShortcuts();
   useShortcut(
     'timer',
@@ -66,7 +73,7 @@ export function TimerBar() {
     <footer
       className={`timerbar timerbar-${timerState}`}
       role="region"
-      aria-label="Timer"
+      aria-label={workspace && timer ? `Timer, workspace ${workspace}` : 'Timer'}
       data-timer-state={timerState}
     >
       <span className="state">
@@ -83,8 +90,11 @@ export function TimerBar() {
       <span className="elapsed mono" role="timer" aria-live="off" aria-label={`Elapsed time ${elapsedText}`}>
         {elapsedText}
       </span>
-      <span className="workitem" title={label}>
+      <span className="workitem" title={workspace ? `${label} · ${workspace}` : label}>
         {label}
+        {workspace && timer ? (
+          <span className="muted small"> · {workspace}</span>
+        ) : null}
       </span>
 
       {!online ? <Badge tone="warning" icon="⚠">Offline</Badge> : null}

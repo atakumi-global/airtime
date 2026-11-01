@@ -1,14 +1,29 @@
 import { useMemo, useState } from 'react';
 import { useApp } from '../state/AppContext';
-import { Badge, healthBadge } from '../components/ui';
+import { Badge, Field, healthBadge } from '../components/ui';
 import { BudgetDialog } from '../components/BudgetDialog';
 import { ProjectDetail } from './ProjectDetail';
 import { formatMoney } from '../lib/format';
 import type { Project } from '../lib/types';
+import {
+  NO_WORKSPACE,
+  sameWorkspace,
+  workspaceNames,
+  workspaceTotals,
+} from '../lib/workspaces';
 import type { View } from '../components/Shell';
 
 export function Projects({ onNavigate }: { onNavigate: (view: View) => void }) {
-  const { member, projects, workItems, organisation, online } = useApp();
+  const {
+    member,
+    projects: allProjects,
+    workItems,
+    organisation,
+    online,
+    planeConnection,
+    workspaceFilter,
+    setWorkspaceFilter,
+  } = useApp();
   const [editing, setEditing] = useState<Project | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const canManage =
@@ -25,11 +40,31 @@ export function Projects({ onNavigate }: { onNavigate: (view: View) => void }) {
     return counts;
   }, [workItems]);
 
+  const workspaces = useMemo(
+    () => workspaceNames(allProjects, planeConnection),
+    [allProjects, planeConnection],
+  );
+  // A remembered filter for a workspace that is gone must not hide everything.
+  const activeFilter = workspaces.some((name) => sameWorkspace(name, workspaceFilter))
+    ? workspaceFilter
+    : '';
+  const projects = useMemo(
+    () =>
+      activeFilter === ''
+        ? allProjects
+        : allProjects.filter((project) => sameWorkspace(project.workspace_slug, activeFilter)),
+    [allProjects, activeFilter],
+  );
+  const totals = useMemo(() => workspaceTotals(projects), [projects]);
+  const currencyCode = organisation?.reportingCurrency ?? 'USD';
+  const noWorkspaceConfigured =
+    allProjects.length === 0 && (planeConnection?.workspaces.length ?? 0) === 0;
+
   const flagged = projects.filter(
     (project) => project.summary && project.summary.flag !== 'ok' && project.summary.flag !== 'none',
   );
 
-  const selected = projects.find((project) => project.id === selectedId);
+  const selected = allProjects.find((project) => project.id === selectedId);
   if (selected) {
     return (
       <ProjectDetail
@@ -72,19 +107,61 @@ export function Projects({ onNavigate }: { onNavigate: (view: View) => void }) {
         </div>
       ) : null}
 
+      {workspaces.length > 0 ? (
+        <div className="row" style={{ alignItems: 'flex-end' }}>
+          <div style={{ minWidth: 220 }}>
+            <Field label="Workspace">
+              <select
+                className="select"
+                value={activeFilter}
+                onChange={(event) => setWorkspaceFilter(event.target.value)}
+              >
+                <option value="">All workspaces</option>
+                {workspaces.map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </div>
+          <span className="muted small" role="status">
+            {projects.length} {projects.length === 1 ? 'project' : 'projects'}
+            {activeFilter ? ` in ${activeFilter}` : ''}
+          </span>
+        </div>
+      ) : null}
+
       <section className="card">
-        {projects.length === 0 ? (
+        {noWorkspaceConfigured ? (
+          <div className="empty">
+            <p>No workspace has been added.</p>
+            <p className="small">
+              Add the Plane workspaces you work in under Settings to sync their projects and
+              work items.
+            </p>
+            <button type="button" className="btn btn-primary" onClick={() => onNavigate('settings')}>
+              Open Settings
+            </button>
+          </div>
+        ) : allProjects.length === 0 ? (
           <div className="empty">
             <p>No projects yet.</p>
             <p className="small">
-              Connect Plane in Settings to sync projects and work items.
+              The workspaces you added have no projects you belong to, or the first sync has
+              not finished. Check their state in Settings.
             </p>
+          </div>
+        ) : projects.length === 0 ? (
+          <div className="empty">
+            <p>No projects in {activeFilter}.</p>
           </div>
         ) : (
           <table className="table">
             <thead>
               <tr>
                 <th scope="col">Project</th>
+                <th scope="col">Workspace</th>
                 <th scope="col">Health</th>
                 <th scope="col" className="num">
                   Price
@@ -132,13 +209,18 @@ export function Projects({ onNavigate }: { onNavigate: (view: View) => void }) {
                         <span className="muted small">
                           {open} open {open === 1 ? 'item' : 'items'} · from Plane
                         </span>
-                        {project.can_enter_time === false ? (
+                        {project.archived ? (
+                          <span className="muted small">
+                            Archived in Plane · history only, no new time
+                          </span>
+                        ) : project.can_enter_time === false ? (
                           <span className="muted small">
                             History only · you are not a member of this project in Plane
                           </span>
                         ) : null}
                       </div>
                     </td>
+                    <td>{project.workspace_slug ?? NO_WORKSPACE}</td>
                     <td>
                       <Badge tone={badge.tone} icon={badge.icon}>
                         {badge.label}
@@ -227,6 +309,45 @@ export function Projects({ onNavigate }: { onNavigate: (view: View) => void }) {
           </table>
         )}
       </section>
+
+      {totals.length > 0 && projects.length > 0 ? (
+        <section className="card" aria-label="Totals per workspace">
+          <table className="table">
+            <caption className="sr-only">Totals per workspace, in {currencyCode}</caption>
+            <thead>
+              <tr>
+                <th scope="col">Workspace</th>
+                <th scope="col" className="num">
+                  Projects
+                </th>
+                <th scope="col" className="num">
+                  Budget
+                </th>
+                <th scope="col" className="num">
+                  Cost
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {totals.map((total) => (
+                <tr key={total.label}>
+                  <th scope="row">{total.label}</th>
+                  <td className="num">
+                    {total.projectCount}
+                    {total.archivedCount > 0 ? ` (${total.archivedCount} archived)` : ''}
+                  </td>
+                  <td className="num">
+                    {formatMoney(total.budget, currencyCode, { compact: true })}
+                  </td>
+                  <td className="num">
+                    {formatMoney(total.cost, currencyCode, { compact: true })}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      ) : null}
 
       {editing ? (
         <BudgetDialog

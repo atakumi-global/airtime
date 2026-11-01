@@ -113,7 +113,7 @@ describe('NotificationBridge', () => {
     fireEvent.click(screen.getByRole('button', { name: /Stop & save/ }));
 
     await waitFor(() =>
-      expect(screen.getByRole('region', { name: 'Timer' }).getAttribute('data-timer-state')).toBe('idle'),
+      expect(screen.getByRole('region', { name: /^Timer/ }).getAttribute('data-timer-state')).toBe('idle'),
     );
     await new Promise((resolve) => setTimeout(resolve, 100));
     expect(raised()).toEqual([]);
@@ -189,6 +189,6 @@ describe('NotificationBridge', () => {
       await ctx.app().refresh();
     });
     await waitFor(() => expect(native.notify).toHaveBeenCalledTimes(1));
-    expect(screen.getByRole('region', { name: 'Timer' })).toBeTruthy();
+    expect(screen.getByRole('region', { name: /^Timer/ })).toBeTruthy();
   });
 });

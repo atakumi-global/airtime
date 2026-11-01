@@ -148,6 +148,15 @@ describe('Timesheet', () => {
     expect(server.callsTo('GET /api/time-entries/summary').length).toBeGreaterThan(0);
   });
 
+  it('shows the workspace of cached entries when offline', async () => {
+    new FakeServer().goOffline();
+    seedSession({ cache: { entries: [costed({ project_id: 'project-1' })] } });
+    mountApp(<Timesheet onBackfill={vi.fn()} />);
+
+    await waitFor(() => expect(screen.getAllByRole('row')).toHaveLength(2));
+    expect(screen.getAllByRole('row')[1]!.textContent).toContain('acme');
+  });
+
   describe('bulk entry', () => {
     async function addRow(server: FakeServer) {
       server.on('POST /api/time-entries', () => ({ entry: timeEntry() }));

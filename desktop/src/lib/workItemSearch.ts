@@ -2,13 +2,16 @@ import type { WorkItem } from './types';
 
 export const MAX_SEARCH_RESULTS = 8;
 
-/** Work items that may receive new time; history-only items are left out of pickers. */
+/**
+ * Work items that may receive new time; history-only items (no Plane membership,
+ * or an archived project) are left out of pickers.
+ */
 export function enterable(items: WorkItem[]): WorkItem[] {
-  return items.filter((item) => item.can_enter_time !== false);
+  return items.filter((item) => item.can_enter_time !== false && item.project_archived !== true);
 }
 
 function haystack(item: WorkItem): string {
-  return [item.identifier, item.name, item.project_name, item.project_identifier]
+  return [item.identifier, item.name, item.project_name, item.project_identifier, item.workspace_slug]
     .filter((part): part is string => typeof part === 'string' && part !== '')
     .join(' ')
     .toLowerCase();
