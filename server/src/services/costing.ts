@@ -6,6 +6,14 @@ import {
   type FxSnapshot,
 } from './fx.js';
 import { getPrimaryOrganisation } from './organisations.js';
+import {
+  EXPENSE_CATEGORIES,
+  EXPENSE_COLUMNS,
+  convertExpense,
+  expenseDateText,
+  type ExpenseCategory,
+  type ExpenseRow,
+} from './expenses.js';
 
 export type RateLookup = { currency: string; hourlyAmount: number };
 
@@ -305,6 +313,17 @@ export async function loadEntriesForProject(
   );
 }
 
+export async function loadExpensesForProject(
+  db: Db,
+  organisationId: string,
+  projectId: string,
+): Promise<ExpenseRow[]> {
+  return db.query<ExpenseRow>(
+    `SELECT ${EXPENSE_COLUMNS} FROM expenses WHERE organisation_id = $1 AND project_id = $2 AND deleted_at IS NULL`,
+    [organisationId, projectId],
+  );
+}
+
 export async function getProjectBudgetSummary(
   db: Db,
   organisationId: string,
@@ -318,6 +337,7 @@ export async function getProjectBudgetSummary(
     [organisationId, project.id],
   );
   const entries = await loadEntriesForProject(db, organisationId, project.id);
+  const expenses = await loadExpensesForProject(db, organisationId, project.id);
   const index = await buildRateIndex(db, organisationId);
   const organisation = await getPrimaryOrganisation(db);
   const snapshot = await getLatestRates(db);
@@ -330,6 +350,7 @@ export async function getProjectBudgetSummary(
       reportingCurrency: organisation?.reporting_currency ?? 'USD',
       snapshot,
     },
+    expenses,
   );
 }
 
@@ -339,6 +360,7 @@ export async function getProjectSummaries(
 ): Promise<{
   budgets: Map<string, BudgetFinancials>;
   entriesByProject: Map<string, EntryRow[]>;
+  expensesByProject: Map<string, ExpenseRow[]>;
   targetDateByProject: Map<string, Date | string | null>;
   index: RateIndex;
   fx: FxContext;
@@ -376,6 +398,19 @@ export async function getProjectSummaries(
     }
   }
 
+  const expensesByProject = new Map<string, ExpenseRow[]>();
+  const expenseRows = await db.query<ExpenseRow>(
+    `SELECT ${EXPENSE_COLUMNS} FROM expenses WHERE organisation_id = $1 AND deleted_at IS NULL`,
+    [organisationId],
+  );
+  for (const expense of expenseRows) {
+    const list = expensesByProject.get(expense.project_id);
+    if (list) {
+      list.push(expense);
+    } else {
+      expensesByProject.set(expense.project_id, [expense]);
+    }
+  }
   const targetDateByProject = new Map<string, Date | string | null>();
   const projectRows = await db.query<{
     id: string;
@@ -393,6 +428,7 @@ export async function getProjectSummaries(
   return {
     budgets,
     entriesByProject,
+    expensesByProject,
     targetDateByProject,
     index,
     fx: {
@@ -416,6 +452,7 @@ export function summariseProject(
       fallbackHorizonDays,
     ),
     data.fx,
+    data.expensesByProject.get(projectId) ?? [],
   );
 }
 
@@ -454,10 +491,23 @@ export type ConversionInfo = {
   stale: boolean;
 };
 
+export type ExpenseSummary = {
+  /** Total of all expenses in the reporting currency; included in `spent`. */
+  total: number;
+  count: number;
+  byCategory: Record<ExpenseCategory, number>;
+  currencyTotals: Record<string, number>;
+  /** Expenses that could not be converted to the reporting currency. */
+  unconverted: number;
+};
+
 export type BudgetSummary = {
   budget: { amount: number; currency: string } | null;
   convertedBudget: number | null;
+  /** Cost: labour at cost levels plus expenses, in the reporting currency. */
   spent: number;
+  labourCost: number;
+  expenses: ExpenseSummary;
   remaining: number | null;
   margin: number | null;
   percentUsed: number | null;
@@ -529,12 +579,74 @@ function weeklySeries(
     }));
 }
 
+export function summariseExpenses(
+  expenses: ExpenseRow[],
+  fx: FxContext,
+): {
+  summary: ExpenseSummary;
+  weekly: Map<string, number>;
+  conversions: Record<string, ConversionInfo>;
+  fxStale: boolean;
+} {
+  const reporting = fx.reportingCurrency.toUpperCase();
+  const byCategory = Object.fromEntries(
+    EXPENSE_CATEGORIES.map((category) => [category, 0]),
+  ) as Record<ExpenseCategory, number>;
+  const currencyTotals: Record<string, number> = {};
+  const conversions: Record<string, ConversionInfo> = {};
+  const weekly = new Map<string, number>();
+  let total = 0;
+  let unconverted = 0;
+  let fxStale = false;
+
+  for (const expense of expenses) {
+    const amount = Number(expense.amount);
+    const currency = expense.currency.toUpperCase();
+    currencyTotals[currency] = round4((currencyTotals[currency] ?? 0) + amount);
+
+    const conversion = convertExpense(expense, reporting, fx.snapshot);
+    if (!conversion) {
+      unconverted += 1;
+      continue;
+    }
+    const converted = conversion.amount;
+    if (!conversion.recorded && currency !== reporting) {
+      conversions[currency] = {
+        rate: conversion.rate,
+        date: conversion.date,
+        stale: conversion.stale,
+      };
+      if (conversion.stale) {
+        fxStale = true;
+      }
+    }
+    total += converted;
+    byCategory[expense.category] = round4(byCategory[expense.category] + converted);
+    const week = isoWeekStart(new Date(`${expenseDateText(expense.expense_date)}T00:00:00.000Z`));
+    weekly.set(week, round4((weekly.get(week) ?? 0) + converted));
+  }
+
+  return {
+    summary: {
+      total: round4(total),
+      count: expenses.length,
+      byCategory,
+      currencyTotals,
+      unconverted,
+    },
+    weekly,
+    conversions,
+    fxStale,
+  };
+}
+
 export function summarise(
   budget: BudgetFinancials | null,
   entries: EntryRow[],
   index: RateIndex,
   horizon: ProjectionHorizon,
   fx: FxContext,
+  expenseRows: ExpenseRow[] = [],
 ): BudgetSummary {
   const reporting = fx.reportingCurrency.toUpperCase();
   let spent = 0;
@@ -592,7 +704,19 @@ export function summarise(
       }
     }
   }
-  spent = round4(spent);
+  const labourCost = round4(spent);
+  const expenseResult = summariseExpenses(expenseRows, fx);
+  const expenses = expenseResult.summary;
+  for (const [week, value] of expenseResult.weekly) {
+    weekly.set(week, round4((weekly.get(week) ?? 0) + value));
+  }
+  Object.assign(conversions, expenseResult.conversions);
+  fxStale = fxStale || expenseResult.fxStale;
+  for (const expense of expenseRows) {
+    const day = new Date(`${expenseDateText(expense.expense_date)}T00:00:00.000Z`).getTime();
+    earliest = earliest === null ? day : Math.min(earliest, day);
+  }
+  spent = round4(labourCost + expenses.total);
   const weeklyCost = weeklySeries(weekly);
 
   const uncosted = {
@@ -609,6 +733,8 @@ export function summarise(
       budget: null,
       convertedBudget: null,
       spent,
+      labourCost,
+      expenses,
       remaining: null,
       margin: null,
       percentUsed: null,
@@ -662,6 +788,8 @@ export function summarise(
       budget: { amount, currency: budget.currency },
       convertedBudget: null,
       spent,
+      labourCost,
+      expenses,
       remaining: null,
       margin: null,
       percentUsed: null,
@@ -745,6 +873,8 @@ export function summarise(
     budget: { amount, currency: budget.currency },
     convertedBudget,
     spent,
+    labourCost,
+    expenses,
     remaining,
     margin,
     percentUsed,

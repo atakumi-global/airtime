@@ -92,7 +92,7 @@ Sign in as the bootstrap administrator from `.env` and check:
   `1d` (8h), `1w` (40h), `0.5d`, `+15m`; parsed value echoed; save blocked while
   invalid.
 - **Projects** — set or edit a budget per project; budget health, burn and flags.
-- **Budgets** — set member, project or client rates.
+- **Rates** — dated member, project and project + member rates plus an administrator-set default hourly rate (AIRTIME-89); client rates are removed.
 - **Reports** — filter by date/project/member and export CSV.
 - **Admin** — add/role/remove members, read the audit log, review and export the
   anonymised feedback dataset.
@@ -137,12 +137,50 @@ AIRTIME-1, 3, 4, 5, 7, 8, 9, 10, 16, 17–24, 26, 31, 32, 33, 53, 55.
   `pauseTimer` and `resumeTimer` for the tray work (AIRTIME-35–37). The tray
   itself is not part of this item.
 
+- **AIRTIME-35** system tray and close-to-tray — `desktop/src-tauri/src/tray/`
+  (`model.rs`, `icon.rs`, `mod.rs`), frameless window with the 36px
+  `TitleBar` and live mini-timer, `TrayBridge` mirroring `timerState` into the
+  tray. The Tauri v2 Windows capability matrix is recorded in
+  `desktop/README.md`. Not yet run on Windows (built and type-checked on Linux
+  only). Manual pass on Windows with `npm run tauri dev`: tray icon appears and
+  swaps glyph for idle / running / paused / offline; left click restores the
+  window; right-click menu shows the state's primary action; Close hides to the
+  tray and the running timer keeps counting in the tray tooltip and menu;
+  Quit Airtime exits; title bar drags, double-click maximises, controls work.
+  AIRTIME-36 and 37 add modules beside `tray/`.
+
+- **AIRTIME-36** desktop notifications with actions — desktop only.
+  `desktop/src-tauri/src/notify/` (`model.rs` pure, `mod.rs` Windows toast glue
+  on `tauri-winrt-notification`, new Windows-only dependency),
+  `NotificationBridge` + `lib/notifications.ts` on the web side. Success "Entry
+  saved" (View), warning "Margin below target" (Open), error "Timer stopped
+  unexpectedly" (Restart). Withheld while the window is in view and under Focus
+  Assist / full-screen; no animation of its own (reduced motion follows the
+  Windows setting). Details in `desktop/README.md`. Compiles for Windows and the
+  Rust model has 14 unit tests (standalone harness); not run on Windows. Manual
+  pass: stop a timer with the window minimised and see "Entry saved"; turn on
+  Focus Assist and confirm nothing appears; stop the timer server-side and see
+  "Timer stopped unexpectedly" with Restart; check a release build shows the
+  Airtime name and icon.
+
+- **AIRTIME-37** shortcut help surface and remaining shortcuts — desktop only.
+  `lib/shortcuts.ts` holds the map (Ctrl+Alt+T timer, Ctrl+Alt+B back-fill,
+  Ctrl+K search work items, Ctrl+Alt+S timesheet, Ctrl+Alt+M tray menu,
+  Ctrl+Enter save) and `state/ShortcutsContext.tsx` the bindings, stored per
+  device in `localStorage` (`airtime.shortcuts`). Help is Shell nav "Keyboard
+  shortcuts"; rebinding is in Settings. Dialogs share `ModalDialog` (focus trap,
+  Escape, save shortcut). Ctrl+Alt+M opens an in-window copy of the tray menu
+  (`TrayMenuDialog`, same actions as the tray through `useTrayActions`). Limits:
+  shortcuts work while the Airtime window has focus; OS-wide hotkeys (a hidden
+  window) would need the Tauri global-shortcut plugin and are not built. Not run
+  on Windows.
+
 ### Not fully done
 
 - **AIRTIME-27** PDF export — not started; needs a template review and a server
   PDF library. Blocks AIRTIME-69 (invoicing).
 - **AIRTIME-28** multi-workspace sync — not started; sized L.
-- **AIRTIME-25** track expenses — not started.
+- **AIRTIME-25** track expenses — built (migration `010_expenses`, `/api/projects/:id/expenses`, `/api/expenses/:id`, cost and CSV export include expenses, desktop Expenses panel and dialog); In Review.
 - **AIRTIME-11–15** future activity capture — backlog by design.
 - **AIRTIME-17–24** Design 1–8 — coded work exists in `prototypes/AIRTIME-16/v2`,
   but the tickets are still Todo; they need a decision to close, not code.

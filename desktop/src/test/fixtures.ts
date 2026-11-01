@@ -1,5 +1,6 @@
 import type {
   BudgetSummary,
+  Expense,
   FxRates,
   Member,
   Organisation,
@@ -79,6 +80,14 @@ export function summary(overrides: Partial<BudgetSummary> = {}): BudgetSummary {
     budget: { amount: 1000, currency: 'EUR' },
     convertedBudget: 1000,
     spent: 400,
+    labourCost: 400,
+    expenses: {
+      total: 0,
+      count: 0,
+      byCategory: { licences: 0, travel: 0, hardware: 0, subcontractors: 0, other: 0 },
+      currencyTotals: {},
+      unconverted: 0,
+    },
     remaining: 600,
     margin: 600,
     percentUsed: 40,
@@ -155,6 +164,28 @@ export function timeEntry(overrides: Partial<TimeEntry> = {}): TimeEntry {
     billable_minutes: 90,
     created_at: '2026-09-02T10:30:00.000Z',
     updated_at: '2026-09-02T10:30:00.000Z',
+    deleted_at: null,
+    ...overrides,
+  };
+}
+
+export function expense(overrides: Partial<Expense> = {}): Expense {
+  return {
+    id: 'expense-1',
+    project_id: 'project-1',
+    work_item_id: null,
+    expense_date: '2026-09-03',
+    amount: '120.00',
+    currency: 'EUR',
+    category: 'licences',
+    note: 'Design tool seats',
+    reporting_currency: 'EUR',
+    amount_reporting: '120.0000',
+    fx_rate: '1.00000000',
+    fx_date: '2026-09-03',
+    created_by: ADMIN.id,
+    created_at: '2026-09-03T08:00:00.000Z',
+    updated_at: '2026-09-03T08:00:00.000Z',
     deleted_at: null,
     ...overrides,
   };

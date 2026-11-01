@@ -122,4 +122,55 @@ describe('TimerBar', () => {
 
     await waitFor(() => expect(server.callsTo('POST /api/timer/start')).toHaveLength(1));
   });
+
+  it('shows the shortcut as keys, and a spoken description on the timer buttons', async () => {
+    new FakeServer();
+    await renderReady(<TimerBar />);
+
+    const start = screen.getByRole('button', { name: /Start timer/ });
+    expect(start.getAttribute('aria-keyshortcuts')).toBe('Control+Alt+T');
+    const described = document.getElementById(start.getAttribute('aria-describedby') ?? '');
+    expect(described?.textContent).toBe('Shortcut: Start or stop the timer, Control Alt T');
+    expect(document.querySelectorAll('.timerbar kbd')).toHaveLength(3);
+  });
+
+  it('follows a rebound shortcut and ignores the old keys', async () => {
+    window.localStorage.setItem(
+      'airtime.shortcuts',
+      JSON.stringify({ timer: { ctrl: true, alt: true, shift: false, key: 'J' } }),
+    );
+    const server = new FakeServer();
+    server.on('POST /api/timer/start', () => ({ timer: runningTimer() }));
+    await renderReady(<TimerBar />);
+
+    await act(async () => {
+      fireEvent.keyDown(window, { key: 't', ctrlKey: true, altKey: true });
+    });
+    expect(server.callsTo('POST /api/timer/start')).toHaveLength(0);
+
+    await act(async () => {
+      fireEvent.keyDown(window, { key: 'j', ctrlKey: true, altKey: true });
+    });
+    await waitFor(() => expect(server.callsTo('POST /api/timer/start')).toHaveLength(1));
+    expect(
+      screen.getByRole('button', { name: /Start timer|Stop & save/ }).getAttribute('aria-keyshortcuts'),
+    ).toBe('Control+Alt+J');
+  });
+
+  it('still toggles while a dialog is open', async () => {
+    const server = new FakeServer();
+    server.on('POST /api/timer/start', () => ({ timer: runningTimer() }));
+    await renderReady(
+      <>
+        <div role="dialog" aria-modal="true" aria-label="Open dialog" />
+        <TimerBar />
+      </>,
+    );
+
+    await act(async () => {
+      fireEvent.keyDown(window, { key: 't', ctrlKey: true, altKey: true });
+    });
+
+    await waitFor(() => expect(server.callsTo('POST /api/timer/start')).toHaveLength(1));
+  });
 });

@@ -59,6 +59,8 @@ export class FakeServer {
     this.on('GET /api/time-entries', () => ({ entries: [] }));
     this.on('GET /api/plane/connection', () => ({ connection: null }));
     this.on('GET /api/fx/rates', () => FX);
+    this.on('GET /api/projects/project-1/expenses', () => ({ expenses: [] }));
+    this.on('GET /api/projects/project-2/expenses', () => ({ expenses: [] }));
     this.on('POST /api/time-entries', () => ({ entry: timeEntry() }));
     bridge().handler = (input, init) => this.handle(input, init);
   }

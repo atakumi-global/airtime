@@ -15,10 +15,65 @@ export type ConversionInfo = {
   stale: boolean;
 };
 
+export type ExpenseCategory =
+  | 'licences'
+  | 'travel'
+  | 'hardware'
+  | 'subcontractors'
+  | 'other';
+
+export type ExpenseSummary = {
+  total: number;
+  count: number;
+  byCategory: Record<ExpenseCategory, number>;
+  currencyTotals: Record<string, number>;
+  unconverted: number;
+};
+
+export type Expense = {
+  id: string;
+  project_id: string;
+  work_item_id: string | null;
+  expense_date: string;
+  amount: string;
+  currency: string;
+  category: ExpenseCategory;
+  note: string | null;
+  reporting_currency: string | null;
+  amount_reporting: string | null;
+  fx_rate: string | null;
+  fx_date: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+};
+
+export type ExpenseInput = {
+  date: string;
+  amount: number;
+  currency: string;
+  category: ExpenseCategory;
+  note?: string | null;
+  workItemId?: string | null;
+};
+
+export type ExpenseHistoryEvent = {
+  id: string;
+  actor_member_id: string | null;
+  action: 'expense.created' | 'expense.updated' | 'expense.deleted' | string;
+  before_state: Record<string, unknown> | null;
+  after_state: Record<string, unknown> | null;
+  created_at: string;
+};
+
 export type BudgetSummary = {
   budget: { amount: number; currency: string } | null;
   convertedBudget: number | null;
+  /** Cost: labour at cost levels plus expenses, in the reporting currency. */
   spent: number;
+  labourCost: number;
+  expenses: ExpenseSummary;
   remaining: number | null;
   margin: number | null;
   percentUsed: number | null;

@@ -284,7 +284,36 @@ export const migrations: Migration[] = [
     `,
   },
   {
-    id: '010_rate_dates',
+    id: '010_expenses',
+    sql: `
+      CREATE TABLE IF NOT EXISTS expenses (
+        id uuid PRIMARY KEY,
+        organisation_id uuid NOT NULL REFERENCES organisations(id) ON DELETE CASCADE,
+        project_id uuid NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        work_item_id text,
+        expense_date date NOT NULL,
+        amount numeric(14, 2) NOT NULL CHECK (amount > 0),
+        currency text NOT NULL,
+        category text NOT NULL
+          CHECK (category IN ('licences', 'travel', 'hardware', 'subcontractors', 'other')),
+        note text,
+        reporting_currency text,
+        amount_reporting numeric(14, 4),
+        fx_rate numeric(18, 8),
+        fx_date date,
+        created_by uuid REFERENCES members(id) ON DELETE SET NULL,
+        created_at timestamptz NOT NULL DEFAULT now(),
+        updated_at timestamptz NOT NULL DEFAULT now(),
+        deleted_at timestamptz
+      );
+
+      CREATE INDEX IF NOT EXISTS expenses_project_idx
+        ON expenses (organisation_id, project_id, expense_date DESC)
+        WHERE deleted_at IS NULL;
+    `,
+  },
+  {
+    id: '011_rate_dates',
     sql: `
       ALTER TABLE organisations ADD COLUMN IF NOT EXISTS default_hourly_rate
         numeric(14, 4) NOT NULL DEFAULT 200 CHECK (default_hourly_rate >= 0);

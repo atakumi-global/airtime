@@ -582,7 +582,7 @@ test('effectiveRate finds the latest rate on or before a date', () => {
   assert.equal(effectiveRate(rates, '2030-01-01')?.hourlyAmount, 3);
 });
 
-test('migration 010 dates existing rates, drops client rates and adds the default rate', async () => {
+test('migration 011 dates existing rates, drops client rates and adds the default rate', async () => {
   const url = process.env.TEST_DATABASE_URL!;
   const schema = `mig_${randomUUID().replace(/-/g, '')}`;
   const admin = new pg.Client({ connectionString: url });
@@ -591,8 +591,8 @@ test('migration 010 dates existing rates, drops client rates and adds the defaul
   const client = new pg.Client({ connectionString: url, options: `-c search_path=${schema}` });
   await client.connect();
   try {
-    const target = migrations.findIndex((migration) => migration.id === '010_rate_dates');
-    assert.ok(target > 0, 'migration 010 exists');
+    const target = migrations.findIndex((migration) => migration.id === '011_rate_dates');
+    assert.ok(target > 0, 'migration 011 exists');
     for (const migration of migrations.slice(0, target)) {
       await client.query(migration.sql);
     }

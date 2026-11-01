@@ -1,7 +1,7 @@
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { SESSION_KEY } from '../lib/native';
-import { ADMIN, MANAGER } from '../test/fixtures';
+import { ADMIN, MANAGER, runningTimer } from '../test/fixtures';
 import { field, renderReady } from '../test/harness';
 import { FakeServer, reject } from '../test/server';
 import { Settings } from './Settings';
@@ -222,5 +222,105 @@ describe('Settings', () => {
     expect(screen.queryByRole('button', { name: 'Save currency' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Refresh FX rates' })).toBeNull();
     expect(screen.getByText(/Only administrators can change these settings/)).toBeTruthy();
+  });
+});
+
+describe('Settings keyboard shortcuts', () => {
+  const rowOf = (label: string) =>
+    screen.getByText(label, { selector: 'th' }).closest('tr') as HTMLElement;
+
+  const stored = () => JSON.parse(window.localStorage.getItem('airtime.shortcuts') ?? '{}');
+
+  it('lists every shortcut with its default keys and a spoken form', async () => {
+    await setup();
+    const section = screen.getByRole('region', { name: 'Keyboard shortcuts' });
+    const rows = within(section).getAllByRole('row').slice(1);
+    expect(rows).toHaveLength(6);
+    expect(within(rowOf('Start or stop the timer')).getByText('Control Alt T')).toBeTruthy();
+    expect(within(rowOf('Search work items')).getByText('Control K')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Reset all' }).hasAttribute('disabled')).toBe(true);
+  });
+
+  it('rebinds a shortcut by pressing the new keys, and remembers it', async () => {
+    await setup();
+    fireEvent.click(screen.getByRole('button', { name: 'Change shortcut for Back-fill time' }));
+    const capture = screen.getByRole('button', {
+      name: 'Press the new keys for Back-fill time, or Escape to cancel',
+    });
+    expect(document.activeElement).toBe(capture);
+
+    fireEvent.keyDown(capture, { key: 'j', ctrlKey: true, altKey: true });
+
+    expect(within(rowOf('Back-fill time')).getByText('Control Alt J')).toBeTruthy();
+    expect(screen.getByText('Saved. Back-fill time, Control Alt J.')).toBeTruthy();
+    expect(stored()).toEqual({ backfill: { ctrl: true, alt: true, shift: false, key: 'J' } });
+    expect(document.activeElement).toBe(
+      screen.getByRole('button', { name: 'Change shortcut for Back-fill time' }),
+    );
+  });
+
+  it('refuses a combination another shortcut uses and says which', async () => {
+    await setup();
+    fireEvent.click(screen.getByRole('button', { name: 'Change shortcut for Back-fill time' }));
+
+    fireEvent.keyDown(document.activeElement!, { key: 't', ctrlKey: true, altKey: true });
+
+    const alert = screen.getByRole('alert');
+    expect(alert.textContent).toBe('Ctrl+Alt+T is already used for "Start or stop the timer".');
+    expect(stored()).toEqual({});
+  });
+
+  it('refuses a bare key and a text-editing combination', async () => {
+    await setup();
+    fireEvent.click(screen.getByRole('button', { name: 'Change shortcut for Open timesheet' }));
+
+    fireEvent.keyDown(document.activeElement!, { key: 'j' });
+    expect(screen.getByRole('alert').textContent).toMatch(/Ctrl or Alt/);
+
+    fireEvent.keyDown(document.activeElement!, { key: 'c', ctrlKey: true });
+    expect(screen.getByRole('alert').textContent).toMatch(/editing text/);
+    expect(stored()).toEqual({});
+  });
+
+  it('waits through a bare modifier and cancels with Escape', async () => {
+    await setup();
+    fireEvent.click(screen.getByRole('button', { name: 'Change shortcut for Show tray menu' }));
+
+    fireEvent.keyDown(document.activeElement!, { key: 'Control', ctrlKey: true });
+    expect(screen.getByText('Press the new keys…')).toBeTruthy();
+
+    fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
+    expect(screen.queryByText('Press the new keys…')).toBeNull();
+    expect(within(rowOf('Show tray menu')).getByText('Control Alt M')).toBeTruthy();
+  });
+
+  it('resets one shortcut or all of them', async () => {
+    await setup();
+    for (const [label, key] of [
+      ['Back-fill time', 'j'],
+      ['Open timesheet', 'l'],
+    ] as const) {
+      fireEvent.click(screen.getByRole('button', { name: `Change shortcut for ${label}` }));
+      fireEvent.keyDown(document.activeElement!, { key, ctrlKey: true, altKey: true });
+    }
+    expect(Object.keys(stored()).sort()).toEqual(['backfill', 'timesheet']);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reset shortcut for Back-fill time' }));
+    expect(within(rowOf('Back-fill time')).getByText('Control Alt B')).toBeTruthy();
+    expect(Object.keys(stored())).toEqual(['timesheet']);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reset all' }));
+    expect(within(rowOf('Open timesheet')).getByText('Control Alt S')).toBeTruthy();
+    expect(window.localStorage.getItem('airtime.shortcuts')).toBeNull();
+  });
+
+  it('does not fire a shortcut while listening for new keys', async () => {
+    const { server } = await setup();
+    server.on('POST /api/timer/start', () => ({ timer: runningTimer() }));
+    fireEvent.click(screen.getByRole('button', { name: 'Change shortcut for Back-fill time' }));
+    expect(screen.getByText('Press the new keys…')).toBeTruthy();
+    // The capture handler owns the key press, so nothing else may react to it.
+    fireEvent.keyDown(document.activeElement!, { key: 't', ctrlKey: true, altKey: true });
+    expect(server.callsTo('POST /api/timer/start')).toHaveLength(0);
   });
 });

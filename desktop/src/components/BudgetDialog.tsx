@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useApp } from '../state/AppContext';
+import { ModalDialog } from './ModalDialog';
 import { Field } from './ui';
 import { currencyOptions } from '../lib/currency';
 import type { Project } from '../lib/types';
@@ -71,6 +72,9 @@ export function BudgetDialog({
   };
 
   const save = async () => {
+    if (loading || saving) {
+      return;
+    }
     const value = Number(amount);
     if (!Number.isFinite(value) || value < 0) {
       setError('Enter a budget amount of zero or more.');
@@ -126,147 +130,137 @@ export function BudgetDialog({
   };
 
   return (
-    <div className="dialog-backdrop" role="presentation" onClick={onClose}>
-      <div
-        className="dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-label={`Budget for ${project.name}`}
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="section-title">
-          <div>
-            <h2>Project budget</h2>
-            <span className="muted small">{project.name}</span>
+    <ModalDialog
+      label={`Budget for ${project.name}`}
+      title="Project budget"
+      subtitle={<span className="muted small">{project.name}</span>}
+      onClose={onClose}
+      onSubmit={() => void save()}
+      initialFocus="input"
+    >
+      {loading ? (
+        <p className="muted small">Loading budget…</p>
+      ) : (
+        <>
+          <div className="row" style={{ alignItems: 'flex-start' }}>
+            <div style={{ flex: 2 }}>
+              <Field label="Budget amount">
+                <input
+                  className="input"
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={amount}
+                  onChange={(event) => setAmount(event.target.value)}
+                  placeholder="0.00"
+                />
+              </Field>
+            </div>
+            <div style={{ flex: 1 }}>
+              <Field label="Currency">
+                <select
+                  className="select"
+                  value={currency}
+                  onChange={(event) => setCurrency(event.target.value)}
+                >
+                  {currencyOptions(currency).map((code) => (
+                    <option key={code} value={code}>
+                      {code}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            </div>
           </div>
-          <button type="button" className="btn btn-sm" onClick={onClose}>
-            Close
-          </button>
-        </div>
 
-        {loading ? (
-          <p className="muted small">Loading budget…</p>
-        ) : (
-          <>
-            <div className="row" style={{ alignItems: 'flex-start' }}>
-              <div style={{ flex: 2 }}>
-                <Field label="Budget amount">
-                  <input
-                    className="input"
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    value={amount}
-                    onChange={(event) => setAmount(event.target.value)}
-                    placeholder="0.00"
-                  />
-                </Field>
-              </div>
-              <div style={{ flex: 1 }}>
-                <Field label="Currency">
-                  <select
-                    className="select"
-                    value={currency}
-                    onChange={(event) => setCurrency(event.target.value)}
-                  >
-                    {currencyOptions(currency).map((code) => (
-                      <option key={code} value={code}>
-                        {code}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-              </div>
+          <div className="row" style={{ alignItems: 'flex-start' }}>
+            <div style={{ flex: 1 }}>
+              <Field label="Price to client">
+                <input
+                  className="input"
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={price}
+                  onChange={(event) => setPrice(event.target.value)}
+                  placeholder="0.00"
+                />
+              </Field>
             </div>
-
-            <div className="row" style={{ alignItems: 'flex-start' }}>
-              <div style={{ flex: 1 }}>
-                <Field label="Price to client">
-                  <input
-                    className="input"
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    value={price}
-                    onChange={(event) => setPrice(event.target.value)}
-                    placeholder="0.00"
-                  />
-                </Field>
-              </div>
-              <div style={{ flex: 1 }}>
-                <Field label="Profit target %">
-                  <input
-                    className="input"
-                    type="number"
-                    min={0}
-                    max={100}
-                    step="0.1"
-                    value={profitTarget}
-                    onChange={(event) => setProfitTarget(event.target.value)}
-                    placeholder="35"
-                  />
-                </Field>
-              </div>
+            <div style={{ flex: 1 }}>
+              <Field label="Profit target %">
+                <input
+                  className="input"
+                  type="number"
+                  min={0}
+                  max={100}
+                  step="0.1"
+                  value={profitTarget}
+                  onChange={(event) => setProfitTarget(event.target.value)}
+                  placeholder="35"
+                />
+              </Field>
             </div>
+          </div>
 
-            <Field
-              label="Margin target (amount)"
-              hint="Margin target is owned by delivery and finance."
-            >
-              <input
-                className="input"
-                type="number"
-                min={0}
-                step="0.01"
-                value={marginTarget}
-                onChange={(event) => setMarginTarget(event.target.value)}
-                placeholder="0.00"
-              />
-            </Field>
+          <Field
+            label="Margin target (amount)"
+            hint="Margin target is owned by delivery and finance."
+          >
+            <input
+              className="input"
+              type="number"
+              min={0}
+              step="0.01"
+              value={marginTarget}
+              onChange={(event) => setMarginTarget(event.target.value)}
+              placeholder="0.00"
+            />
+          </Field>
 
-            <p className="muted small">
-              Price sets Profit (price minus cost) and the profit target; the
-              margin target is measured against cost. Time is costed at the most
-              specific rate: project + member, then project, then member, then the default rate. Amounts in other
-              currencies convert at the daily FX rate.
-            </p>
+          <p className="muted small">
+            Price sets Profit (price minus cost) and the profit target; the
+            margin target is measured against cost. Time is costed at the most
+            specific rate: project + member, then project, then member, then the
+            default rate. Amounts in other currencies convert at the daily FX
+            rate.
+          </p>
 
-            {error ? (
-              <div className="banner banner-error" role="alert">
-                {error}
-              </div>
-            ) : null}
-
-            <div className="row-between">
-              {existing ? (
-                <button
-                  type="button"
-                  className="btn btn-danger"
-                  onClick={() => void remove()}
-                  disabled={saving}
-                >
-                  Remove budget
-                </button>
-              ) : (
-                <span />
-              )}
-              <div className="row">
-                <button type="button" className="btn" onClick={onClose}>
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  onClick={() => void save()}
-                  disabled={saving}
-                >
-                  {saving ? 'Saving…' : 'Save budget'}
-                </button>
-              </div>
+          {error ? (
+            <div className="banner banner-error" role="alert">
+              {error}
             </div>
-          </>
-        )}
-      </div>
-    </div>
+          ) : null}
+
+          <div className="row-between">
+            {existing ? (
+              <button
+                type="button"
+                className="btn btn-danger"
+                onClick={() => void remove()}
+                disabled={saving}
+              >
+                Remove budget
+              </button>
+            ) : (
+              <span />
+            )}
+            <div className="row">
+              <button type="button" className="btn" onClick={onClose}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => void save()}
+                disabled={saving}
+              >
+                {saving ? 'Saving…' : 'Save budget'}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+    </ModalDialog>
   );
 }

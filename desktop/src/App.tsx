@@ -1,7 +1,11 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { AppProvider, useApp } from './state/AppContext';
+import { ShortcutsProvider } from './state/ShortcutsContext';
 import { Shell, type View } from './components/Shell';
 import { BackfillDialog } from './components/BackfillDialog';
+import { TitleBar } from './components/TitleBar';
+import { NotificationBridge } from './components/NotificationBridge';
+import { TrayBridge } from './components/TrayBridge';
 import { Login } from './screens/Login';
 import { Timesheet } from './screens/Timesheet';
 import { Projects } from './screens/Projects';
@@ -10,10 +14,18 @@ import { Reports } from './screens/Reports';
 import { Admin } from './screens/Admin';
 import { Settings } from './screens/Settings';
 
-function Authenticated() {
+function Authenticated({
+  view,
+  onNavigate,
+  backfill,
+  onBackfill,
+}: {
+  view: View;
+  onNavigate: (view: View) => void;
+  backfill: boolean;
+  onBackfill: (open: boolean) => void;
+}) {
   const { status } = useApp();
-  const [view, setView] = useState<View>('time');
-  const [backfill, setBackfill] = useState(false);
 
   if (status === 'loading') {
     return (
@@ -31,17 +43,42 @@ function Authenticated() {
     <>
       <Shell
         view={view}
-        onNavigate={setView}
-        onBackfill={() => setBackfill(true)}
+        onNavigate={onNavigate}
+        onBackfill={() => onBackfill(true)}
       >
-        {view === 'time' ? <Timesheet onBackfill={() => setBackfill(true)} /> : null}
-        {view === 'projects' ? <Projects onNavigate={setView} /> : null}
+        {view === 'time' ? <Timesheet onBackfill={() => onBackfill(true)} /> : null}
+        {view === 'projects' ? <Projects onNavigate={onNavigate} /> : null}
         {view === 'rates' ? <Rates /> : null}
         {view === 'reports' ? <Reports /> : null}
         {view === 'admin' ? <Admin /> : null}
         {view === 'settings' ? <Settings /> : null}
       </Shell>
-      {backfill ? <BackfillDialog onClose={() => setBackfill(false)} /> : null}
+      {backfill ? <BackfillDialog onClose={() => onBackfill(false)} /> : null}
+    </>
+  );
+}
+
+function Content() {
+  const [view, setView] = useState<View>('time');
+  const [backfill, setBackfill] = useState(false);
+  const openBackfill = useCallback(() => setBackfill(true), []);
+  const openTimesheet = useCallback(() => setView('time'), []);
+  const openSettings = useCallback(() => setView('settings'), []);
+  const openProjects = useCallback(() => setView('projects'), []);
+  return (
+    <>
+      <TrayBridge
+        onBackfill={openBackfill}
+        onTimesheet={openTimesheet}
+        onSettings={openSettings}
+      />
+      <NotificationBridge onTimesheet={openTimesheet} onProjects={openProjects} />
+      <Authenticated
+        view={view}
+        onNavigate={setView}
+        backfill={backfill}
+        onBackfill={setBackfill}
+      />
     </>
   );
 }
@@ -49,7 +86,14 @@ function Authenticated() {
 export default function App() {
   return (
     <AppProvider>
-      <Authenticated />
+      <ShortcutsProvider>
+        <div className="frame">
+          <TitleBar />
+          <div className="frame-body">
+            <Content />
+          </div>
+        </div>
+      </ShortcutsProvider>
     </AppProvider>
   );
 }

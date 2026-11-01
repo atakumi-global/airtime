@@ -54,7 +54,7 @@ export async function resetData(): Promise<void> {
   await getDb().query(
     `TRUNCATE organisations, members, projects, rates, budgets, time_entries,
               audit_log, plane_connections, work_items, plane_sync_runs,
-              timers, time_entry_history, fx_rates, feedback_events CASCADE`,
+              timers, time_entry_history, fx_rates, feedback_events, expenses CASCADE`,
   );
 }
 
