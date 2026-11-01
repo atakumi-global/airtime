@@ -13,6 +13,7 @@ import type {
   Member,
   Organisation,
   PlaneConnection,
+  PlaneSyncSummary,
   Project,
   Rate,
   RateScope,
@@ -31,11 +32,14 @@ const defaultFetch = isTauri
 
 export class ApiError extends Error {
   readonly status: number;
+  /** The server's error body, when it sent one (for example per-workspace results). */
+  readonly body: Record<string, unknown> | null;
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, body: Record<string, unknown> | null = null) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
+    this.body = body;
   }
 }
 
@@ -93,15 +97,17 @@ export class ApiClient {
 
     if (!response.ok) {
       let message = `request failed with ${response.status}`;
+      let details: Record<string, unknown> | null = null;
       try {
         const body = (await response.json()) as { error?: string };
+        details = body as Record<string, unknown>;
         if (body.error) {
           message = body.error;
         }
       } catch {
         // keep the status message
       }
-      throw new ApiError(response.status, message);
+      throw new ApiError(response.status, message, details);
     }
 
     if (response.status === 204) {
@@ -312,17 +318,31 @@ export class ApiClient {
 
   async savePlaneConnection(payload: {
     baseUrl: string;
-    workspaceSlug: string;
-    token: string;
-  }): Promise<{ workspace: { slug: string; projectCount: number } }> {
+    workspaceSlugs: string[];
+    /** Left out to keep the token stored on the server. */
+    token?: string;
+  }): Promise<{
+    connection: PlaneConnection;
+    removedWorkspaces: string[];
+    sync: PlaneSyncSummary | null;
+    warning: string | null;
+  }> {
     return this.request('/api/plane/connection', {
       method: 'PUT',
       body: JSON.stringify(payload),
     });
   }
 
-  async syncPlane(): Promise<{ projects: number; workItems: number }> {
-    const body = await this.request<{ sync: { projects: number; workItems: number } }>(
+  async verifyPlaneWorkspaces(): Promise<PlaneConnection> {
+    const body = await this.request<{ connection: PlaneConnection }>(
+      '/api/plane/workspaces/verify',
+      { method: 'POST', body: JSON.stringify({}) },
+    );
+    return body.connection;
+  }
+
+  async syncPlane(): Promise<PlaneSyncSummary> {
+    const body = await this.request<{ sync: PlaneSyncSummary }>(
       '/api/plane/sync',
       { method: 'POST', body: JSON.stringify({}) },
     );

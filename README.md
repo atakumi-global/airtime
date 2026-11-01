@@ -257,6 +257,7 @@ caller without the role.
 | `GET` | `/api/plane/connection` | any authenticated member |
 | `PUT` | `/api/plane/connection` | any authenticated member |
 | `DELETE` | `/api/plane/connection` | any authenticated member |
+| `POST` | `/api/plane/workspaces/verify` | any authenticated member |
 | `POST` | `/api/plane/sync` | any authenticated member |
 | `GET` | `/api/plane/work-items` | any authenticated member |
 | `POST` | `/api/plane/webhook/:secret` | public (secret path) |
@@ -277,17 +278,51 @@ the audit log with actor and timestamp.
 
 ## Plane connection and sync
 
-`PUT /api/plane/connection` takes `baseUrl`, `workspaceSlug` and a Plane personal
-API token. The server verifies the token with a read-only Plane request, stores
-the token encrypted with AES-256-GCM under `TOKEN_ENCRYPTION_KEY`, then syncs all
-projects and work items visible to that token into the local cache. Airtime only
-ever issues `GET` requests to Plane; it never writes back.
+`PUT /api/plane/connection` takes `baseUrl`, `workspaceSlugs` (a list) and a Plane
+personal API token (AIRTIME-28). One account token covers every workspace its
+user can reach, but Plane has no token-authenticated endpoint that lists
+workspaces, so the member names the slugs. Slugs are trimmed, de-duplicated
+case-insensitively, validated against Plane's slug rule (letters, digits, `-`,
+`_`, at most 48) and capped at 20 per connection; an empty slug is rejected with
+`400 empty_workspace_slug`. Each slug is verified on its own with a read-only
+`GET /workspaces/{slug}/projects/`. A slug the token cannot read is stored with
+status `failed`, an `errorCategory` (`unauthorised`, `not_found`, `network`) and a
+fixed message (never the token or Plane's response); the others are stored and
+synced. The save is refused (`400 plane_verification_failed`, with the per-slug
+results) only when no slug can be read. `token` may be omitted to keep the stored
+one while the list is edited. The token is stored encrypted with AES-256-GCM under
+`TOKEN_ENCRYPTION_KEY`. `POST /api/plane/workspaces/verify` ("Verify all")
+re-checks every slug with the stored token. Removing a slug hides its projects
+and work items from that member; time entries, budgets, rates and audit records
+stay in the database, and projects where the member recorded time stay readable
+as history.
 
-Every connection gets a unique webhook path (`webhookPath` in the connection
-response). Register it in Plane to receive the fastest updates; a scheduler polls
-each connection every `SYNC_POLL_SECONDS` (default 60) as a fallback for
-installations without webhooks. `GET /api/plane/work-items` returns the open work
-items, optionally filtered by `projectId` (add `includeClosed=true` for all).
+Sync reads every configured workspace in one run, each project and its work
+items attributed to the workspace they came from (`workspace_slug` on `projects`
+and `work_items`). A workspace that fails does not stop the others: the run is
+recorded as `partial`, the workspace shows its error, and member access is left
+as it was (nothing is revoked on a failed read). When every workspace fails the
+sync fails. Airtime only ever issues `GET` requests to Plane.
+
+Plane registers webhooks per workspace (`workspace_webhooks`), and every delivery
+names its workspace (`workspace_id` and `workspace_slug` in the payload; the
+signature is an HMAC with that webhook's own secret). Each configured workspace
+therefore has its own webhook path (`webhookPath` on each entry of
+`connection.workspaces`); a delivery syncs only that workspace. Register one
+webhook per workspace for the 5 second freshness; a scheduler polls each
+connection every `SYNC_POLL_SECONDS` (default 60) as a fallback.
+`GET /api/plane/work-items` returns the open work items, optionally filtered by
+`projectId` or `workspace` (add `includeClosed=true` for all); each carries
+`workspace_slug`. `GET /api/projects` accepts `workspace` too, and with
+`withBudget=true` also returns `workspaces`: totals per workspace (budget, cost,
+labour, expenses, billable minutes, project counts), each the sum of the project
+rows the caller can read. Time entries and the timer carry `workspace_slug`, and
+the CSV export has a final `workspace` column.
+
+Archived Plane projects are synced like any other (Plane lists them), flagged
+`archived`, and refuse new time (`409 project_archived`); their history stays
+readable. A workspace that Plane no longer answers for (deleted, or the token lost
+access) shows as `failed`; its projects stay as history.
 
 ### Workspace access
 

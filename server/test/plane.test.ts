@@ -142,8 +142,10 @@ test('saving a valid connection verifies, stores the token encrypted and syncs',
   });
   assert.equal(response.statusCode, 200);
   const body = response.json();
-  assert.equal(body.workspace.slug, 'atakumi');
-  assert.equal(body.workspace.projectCount, 2);
+  assert.equal(body.connection.workspaces.length, 1);
+  assert.equal(body.connection.workspaces[0].slug, 'atakumi');
+  assert.equal(body.connection.workspaces[0].status, 'verified');
+  assert.equal(body.connection.workspaces[0].projectCount, 2);
   assert.equal(body.sync.projects, 2);
   assert.equal(body.sync.workItems, 2);
 
@@ -218,7 +220,7 @@ test('a webhook triggers a sync for its connection', async () => {
     url: '/api/plane/connection',
     headers: auth(userToken),
   });
-  const webhookPath = connection.json().connection.webhookPath as string;
+  const webhookPath = connection.json().connection.workspaces[0].webhookPath as string;
   assert.ok(webhookPath.startsWith('/api/plane/webhook/'));
 
   const response = await app.inject({
@@ -247,7 +249,7 @@ test('removing a member stops their Plane sync and keeps their entries', async (
     url: '/api/plane/connection',
     headers: auth(memberToken),
   });
-  const webhookPath = connection.json().connection.webhookPath as string;
+  const webhookPath = connection.json().connection.workspaces[0].webhookPath as string;
 
   const adminToken = await login(app, admin.email, admin.password);
   const removed = await app.inject({
@@ -296,7 +298,8 @@ test('poll and webhook skip a connection whose member is not active', async () =
 
   const db = getDb();
   const rows = await db.query<{ webhook_secret: string }>(
-    'SELECT webhook_secret FROM plane_connections WHERE member_id = $1',
+    `SELECT w.webhook_secret FROM plane_connection_workspaces w
+       JOIN plane_connections c ON c.id = w.connection_id WHERE c.member_id = $1`,
     [manager.id],
   );
   const webhookSecret = rows[0]!.webhook_secret;

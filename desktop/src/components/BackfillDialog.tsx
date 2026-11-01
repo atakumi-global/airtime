@@ -4,6 +4,7 @@ import { useApp } from '../state/AppContext';
 import { durationError, parseDuration } from '../lib/format';
 import { DurationInput } from './DurationInput';
 import { ModalDialog } from './ModalDialog';
+import { WorkItemOptions } from './WorkItemOptions';
 import { Field } from './ui';
 
 export function BackfillDialog({ onClose }: { onClose: () => void }) {
@@ -57,12 +58,7 @@ export function BackfillDialog({ onClose }: { onClose: () => void }) {
           onChange={(event) => setWorkItemId(event.target.value)}
         >
           <option value="">No work item</option>
-          {workItems.map((item) => (
-            <option key={item.id} value={item.plane_work_item_id}>
-              {item.identifier ? `${item.identifier} · ` : ''}
-              {item.name}
-            </option>
-          ))}
+          <WorkItemOptions items={workItems} />
         </select>
       </Field>
 

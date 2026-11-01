@@ -624,7 +624,7 @@ test('when Plane is unreachable stored access holds, then fails closed once it i
 test('Plane answering 404 for the workspace removes access instead of failing', async () => {
   planeState.memberships.member = new Set(['pl-web']);
   const memberToken = await connect('member');
-  await getDb().query("UPDATE plane_connections SET workspace_slug = 'gone'");
+  await getDb().query("UPDATE plane_connection_workspaces SET slug = 'gone'");
   const response = await app.inject({
     method: 'POST',
     url: '/api/time-entries',

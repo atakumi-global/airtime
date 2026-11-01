@@ -110,6 +110,8 @@ export type Project = {
   id: string;
   organisation_id: string;
   plane_project_id: string | null;
+  /** The Plane workspace (slug) the project belongs to; null for a project not linked to Plane. */
+  workspace_slug?: string | null;
   name: string;
   identifier: string | null;
   archived: boolean;
@@ -129,8 +131,12 @@ export type WorkItem = {
   name: string;
   state_group: string | null;
   is_open: boolean;
+  /** The Plane workspace (slug) the work item came from. */
+  workspace_slug?: string | null;
   project_name: string | null;
   project_identifier: string | null;
+  /** True when the project is archived in Plane: history only, no new time. */
+  project_archived?: boolean;
   /** False when the work item is history only: it stays readable but takes no new time. */
   can_enter_time?: boolean;
 };
@@ -149,6 +155,8 @@ export type TimeEntry = {
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
+  /** The Plane workspace of the entry's project, when the server knows it. */
+  workspace_slug?: string | null;
 };
 
 export type CostedTimeEntry = TimeEntry & {
@@ -191,6 +199,8 @@ export type RunningTimer = {
   project_id: string | null;
   work_item_id: string | null;
   description: string | null;
+  /** The Plane workspace of the timer's work item. */
+  workspace_slug?: string | null;
   started_at: string;
   /** Absent in caches written before the paused state existed; treated as running. */
   state?: 'running' | 'paused';
@@ -202,14 +212,41 @@ export type RunningTimer = {
 
 export type TimerState = 'idle' | 'running' | 'paused';
 
+export type WorkspaceStatus = 'pending' | 'verified' | 'failed';
+
+export type PlaneWorkspace = {
+  slug: string;
+  status: WorkspaceStatus;
+  errorCategory: 'unauthorised' | 'not_found' | 'network' | null;
+  error: string | null;
+  projectCount: number | null;
+  lastVerifiedAt: string | null;
+  lastSyncedAt: string | null;
+  /** Each workspace has its own webhook in Plane. */
+  webhookPath: string | null;
+};
+
 export type PlaneConnection = {
   baseUrl: string;
-  workspaceSlug: string;
+  workspaces: PlaneWorkspace[];
   status: string;
   lastVerifiedAt: string | null;
   lastSyncedAt: string | null;
   lastError: string | null;
-  webhookPath: string | null;
+};
+
+export type WorkspaceSyncResult = {
+  slug: string;
+  status: 'ok' | 'failed';
+  projects: number;
+  workItems: number;
+  error: string | null;
+};
+
+export type PlaneSyncSummary = {
+  projects: number;
+  workItems: number;
+  workspaces?: WorkspaceSyncResult[];
 };
 
 export type FxRates = {
@@ -284,4 +321,6 @@ export type CacheSnapshot = {
   entries: TimeEntry[];
   timer: RunningTimer | null;
   queue: QueuedEntry[];
+  /** The workspace filter chosen on Projects ('' or absent = all workspaces). */
+  workspaceFilter?: string | null;
 };

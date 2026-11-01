@@ -10,7 +10,7 @@ describe('TimerBar', () => {
     new FakeServer();
     await renderReady(<TimerBar />);
 
-    const bar = screen.getByRole('region', { name: 'Timer' });
+    const bar = screen.getByRole('region', { name: /^Timer/ });
     expect(bar.getAttribute('data-timer-state')).toBe('idle');
     expect(screen.getByText('No timer running')).toBeTruthy();
     expect(screen.getByRole('timer').textContent).toBe('00:00:00');
@@ -26,7 +26,7 @@ describe('TimerBar', () => {
     fireEvent.click(screen.getByRole('button', { name: /Start timer/ }));
 
     await waitFor(() =>
-      expect(screen.getByRole('region', { name: 'Timer' }).getAttribute('data-timer-state')).toBe('running'),
+      expect(screen.getByRole('region', { name: /^Timer/ }).getAttribute('data-timer-state')).toBe('running'),
     );
     expect(server.callsTo('POST /api/timer/start')[0]?.body).toEqual({
       workItemId: 'plane-wi-1',
@@ -60,7 +60,7 @@ describe('TimerBar', () => {
     fireEvent.click(screen.getByRole('button', { name: /Stop & save/ }));
 
     await waitFor(() =>
-      expect(screen.getByRole('region', { name: 'Timer' }).getAttribute('data-timer-state')).toBe('idle'),
+      expect(screen.getByRole('region', { name: /^Timer/ }).getAttribute('data-timer-state')).toBe('idle'),
     );
     expect(server.callsTo('POST /api/timer/stop')).toHaveLength(1);
     expect(screen.getByRole('button', { name: /Start timer/ })).toBeTruthy();
@@ -77,13 +77,13 @@ describe('TimerBar', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Pause timer' }));
     await waitFor(() =>
-      expect(screen.getByRole('region', { name: 'Timer' }).getAttribute('data-timer-state')).toBe('paused'),
+      expect(screen.getByRole('region', { name: /^Timer/ }).getAttribute('data-timer-state')).toBe('paused'),
     );
     expect(screen.getByText('Timer paused', { exact: false })).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: /Resume/ }));
     await waitFor(() =>
-      expect(screen.getByRole('region', { name: 'Timer' }).getAttribute('data-timer-state')).toBe('running'),
+      expect(screen.getByRole('region', { name: /^Timer/ }).getAttribute('data-timer-state')).toBe('running'),
     );
   });
 
@@ -107,7 +107,7 @@ describe('TimerBar', () => {
     fireEvent.click(screen.getByRole('button', { name: /Start timer/ }));
 
     await waitFor(() =>
-      expect(screen.getByRole('region', { name: 'Timer' }).getAttribute('data-timer-state')).toBe('idle'),
+      expect(screen.getByRole('region', { name: /^Timer/ }).getAttribute('data-timer-state')).toBe('idle'),
     );
   });
 
@@ -172,5 +172,26 @@ describe('TimerBar', () => {
     });
 
     await waitFor(() => expect(server.callsTo('POST /api/timer/start')).toHaveLength(1));
+  });
+
+  it('shows the workspace of the running timer and puts it in the accessible name', async () => {
+    const server = new FakeServer();
+    server.on('GET /api/timer', () => ({ timer: runningTimer({ workspace_slug: 'beta' }) }));
+    await renderReady(<TimerBar />);
+    const bar = screen.getByRole('region', { name: 'Timer, workspace beta' });
+    expect(bar.textContent).toContain('beta');
+  });
+
+  it('falls back to the work item workspace when the timer carries none (offline start)', async () => {
+    const server = new FakeServer();
+    server.on('GET /api/timer', () => ({ timer: runningTimer() }));
+    await renderReady(<TimerBar />);
+    expect(screen.getByRole('region', { name: 'Timer, workspace acme' })).toBeTruthy();
+  });
+
+  it('keeps the plain name when no timer runs', async () => {
+    new FakeServer();
+    await renderReady(<TimerBar />);
+    expect(screen.getByRole('region', { name: /^Timer/ })).toBeTruthy();
   });
 });

@@ -8,6 +8,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { workItemWorkspace } from '../lib/workspaces';
 import { ApiClient, ApiError, NetworkError } from '../lib/api';
 import {
   SESSION_KEY,
@@ -153,10 +154,15 @@ type AppValue = {
   setFeedbackOptIn: (optIn: boolean) => Promise<void>;
   savePlaneConnection: (input: {
     baseUrl: string;
-    workspaceSlug: string;
-    token: string;
+    workspaceSlugs: string[];
+    /** Left out to keep the token stored on the server. */
+    token?: string;
   }) => Promise<string>;
+  verifyPlaneWorkspaces: () => Promise<string>;
   syncPlane: () => Promise<string>;
+  /** The workspace chosen on Projects ('' = all); remembered between sessions. */
+  workspaceFilter: string;
+  setWorkspaceFilter: (workspace: string) => void;
   dismiss: () => void;
 };
 
@@ -170,6 +176,7 @@ function cachePayload(state: {
   entries: TimeEntry[];
   timer: RunningTimer | null;
   queue: QueuedEntry[];
+  workspaceFilter: string;
 }): CacheSnapshot {
   return { savedAt: new Date().toISOString(), ...state };
 }
@@ -184,6 +191,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [entries, setEntries] = useState<TimeEntry[]>([]);
   const [timer, setTimer] = useState<RunningTimer | null>(null);
   const [planeConnection, setPlaneConnection] = useState<PlaneConnection | null>(null);
+  const [workspaceFilter, setWorkspaceFilter] = useState('');
   const [fx, setFx] = useState<FxRates | null>(null);
   const [timerPending, setTimerPending] = useState(false);
   const [queue, setQueue] = useState<QueuedEntry[]>([]);
@@ -208,12 +216,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
     entries,
     timer,
     queue,
+    workspaceFilter,
   });
 
   useEffect(() => {
-    stateRef.current = { member, organisation, projects, workItems, entries, timer, queue };
+    stateRef.current = {
+      member,
+      organisation,
+      projects,
+      workItems,
+      entries,
+      timer,
+      queue,
+      workspaceFilter,
+    };
     queueRef.current = queue;
-  }, [member, organisation, projects, workItems, entries, timer, queue]);
+  }, [member, organisation, projects, workItems, entries, timer, queue, workspaceFilter]);
 
   const persist = useCallback(async () => {
     if (!cacheLoadedRef.current) {
@@ -227,6 +245,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       entries: stateRef.current.entries,
       timer: stateRef.current.timer,
       queue: stateRef.current.queue,
+      workspaceFilter: stateRef.current.workspaceFilter,
     });
     try {
       await writeCacheFile(JSON.stringify(snapshot));
@@ -237,7 +256,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     void persist();
-  }, [member, organisation, projects, workItems, entries, timer, queue, persist]);
+  }, [member, organisation, projects, workItems, entries, timer, queue, workspaceFilter, persist]);
 
   const weekRange = useCallback(() => {
     const from = startOfWeek();
@@ -353,6 +372,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           setEntries(snapshot.entries ?? []);
           setTimer(snapshot.timer ?? null);
           setQueue(snapshot.queue ?? []);
+          setWorkspaceFilter(snapshot.workspaceFilter ?? '');
           if (snapshot.member) {
             setStatus('ready');
           }
@@ -436,6 +456,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         project_id: item?.project_id ?? null,
         work_item_id: workItemId,
         description: item ? `${item.identifier ?? ''} ${item.name}`.trim() : null,
+        workspace_slug: item ? workItemWorkspace(item, projects) : null,
         started_at: new Date().toISOString(),
         state: 'running',
         paused_at: null,
@@ -462,7 +483,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setTimerPending(false);
       }
     },
-    [ensureClient, logout, member, workItems],
+    [ensureClient, logout, member, projects, workItems],
   );
 
   const pauseTimer = useCallback(async () => {
@@ -834,18 +855,38 @@ export function AppProvider({ children }: { children: ReactNode }) {
   );
 
   const savePlaneConnection = useCallback(
-    async (input: { baseUrl: string; workspaceSlug: string; token: string }) => {
+    async (input: { baseUrl: string; workspaceSlugs: string[]; token?: string }) => {
       const result = await ensureClient().savePlaneConnection(input);
+      setPlaneConnection(result.connection);
       await refresh();
-      return `Connected to ${result.workspace.slug} (${result.workspace.projectCount} projects)`;
+      const verified = result.connection.workspaces.filter(
+        (workspace) => workspace.status === 'verified',
+      ).length;
+      const total = result.connection.workspaces.length;
+      const failed = total - verified;
+      const base = `Connected to ${verified} of ${total} ${total === 1 ? 'workspace' : 'workspaces'}`;
+      return failed > 0 ? `${base}; ${failed} could not be read` : base;
     },
     [ensureClient, refresh],
   );
 
+  const verifyPlaneWorkspaces = useCallback(async () => {
+    const connection = await ensureClient().verifyPlaneWorkspaces();
+    setPlaneConnection(connection);
+    const verified = connection.workspaces.filter(
+      (workspace) => workspace.status === 'verified',
+    ).length;
+    return `${verified} of ${connection.workspaces.length} workspaces verified`;
+  }, [ensureClient]);
+
   const syncPlane = useCallback(async () => {
     const result = await ensureClient().syncPlane();
     await refresh();
-    return `Synced ${result.projects} projects and ${result.workItems} work items`;
+    const failed = (result.workspaces ?? []).filter((workspace) => workspace.status === 'failed');
+    const base = `Synced ${result.projects} projects and ${result.workItems} work items`;
+    return failed.length > 0
+      ? `${base}; ${failed.map((workspace) => workspace.slug).join(', ')} failed`
+      : base;
   }, [ensureClient, refresh]);
 
   const timerState: TimerState = !timer ? 'idle' : isTimerPaused(timer) ? 'paused' : 'running';
@@ -908,7 +949,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       exportCsv,
       setFeedbackOptIn,
       savePlaneConnection,
+      verifyPlaneWorkspaces,
       syncPlane,
+      workspaceFilter,
+      setWorkspaceFilter,
       dismiss: () => {
         setError(null);
         setNotice(null);
@@ -971,7 +1015,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       exportCsv,
       setFeedbackOptIn,
       savePlaneConnection,
+      verifyPlaneWorkspaces,
       syncPlane,
+      workspaceFilter,
+      setWorkspaceFilter,
     ],
   );
 

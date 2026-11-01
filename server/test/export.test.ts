@@ -101,7 +101,7 @@ test('a manager can export filtered time entries as CSV', async () => {
   assert.equal(lines.length, 2, 'header plus one entry row');
   assert.equal(
     lines[0],
-    'project,member,date,duration_minutes,billable_minutes,work_item,description,source,rate,currency,cost,cost_reporting_currency,reporting_currency,fx_rate,fx_date,fx_stale,type,category',
+    'project,member,date,duration_minutes,billable_minutes,work_item,description,source,rate,currency,cost,cost_reporting_currency,reporting_currency,fx_rate,fx_date,fx_stale,type,category,workspace',
   );
   assert.ok(lines[1]!.startsWith('Project a,Member,'));
   assert.ok(lines[1]!.includes(',60,60,A-1,"Fix ""login"", again",manual,60,USD,60,60,USD,1,,false,time,'));

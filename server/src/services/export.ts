@@ -17,6 +17,7 @@ type ExportRow = EntryRow & {
   member_name: string;
   project_name: string | null;
   project_identifier: string | null;
+  workspace_slug: string | null;
   work_item_identifier: string | null;
   work_item_name: string | null;
 };
@@ -24,6 +25,7 @@ type ExportRow = EntryRow & {
 type ExpenseExportRow = ExpenseRow & {
   creator_name: string | null;
   project_name: string | null;
+  workspace_slug: string | null;
   work_item_identifier: string | null;
 };
 
@@ -66,6 +68,7 @@ export async function buildTimeEntriesCsv(
             m.display_name AS member_name,
             p.name AS project_name,
             p.identifier AS project_identifier,
+            p.workspace_slug AS workspace_slug,
             w.identifier AS work_item_identifier,
             w.name AS work_item_name
        FROM time_entries e
@@ -109,6 +112,7 @@ export async function buildTimeEntriesCsv(
     'fx_stale',
     'type',
     'category',
+    'workspace',
   ];
 
   const lines = [header.join(',')];
@@ -153,6 +157,7 @@ export async function buildTimeEntriesCsv(
         fxStale,
         'time',
         '',
+        row.workspace_slug ?? '',
       ]
         .map(csvField)
         .join(','),
@@ -177,6 +182,7 @@ export async function buildTimeEntriesCsv(
                 x.created_at, x.updated_at, x.deleted_at,
                 m.display_name AS creator_name,
                 p.name AS project_name,
+                p.workspace_slug AS workspace_slug,
                 w.identifier AS work_item_identifier
            FROM expenses x
            JOIN projects p ON p.id = x.project_id
@@ -218,6 +224,7 @@ export async function buildTimeEntriesCsv(
         conversion ? String(conversion.stale) : '',
         'expense',
         row.category,
+        row.workspace_slug ?? '',
       ]
         .map(csvField)
         .join(','),

@@ -14,6 +14,7 @@ import {
 } from '../services/accessCheck.js';
 import { deleteBudget, getBudget, upsertBudget } from '../services/budgets.js';
 import {
+  type BudgetSummary,
   getProjectBudgetSummary,
   getProjectSummaries,
   summariseProject,
@@ -35,6 +36,70 @@ const budgetSchema = z.object({
   marginTargetAmount: z.number().nonnegative().nullish(),
 });
 
+export type WorkspaceTotals = {
+  workspace: string | null;
+  projectCount: number;
+  archivedProjectCount: number;
+  currency: string;
+  /** Sums of the project figures the viewer can read, in the reporting currency. */
+  budget: number;
+  spent: number;
+  labourCost: number;
+  expenses: number;
+  billableMinutes: number;
+};
+
+/**
+ * Totals per workspace over the projects the viewer can read. Each figure is the
+ * sum of the per-project figures (already in the reporting currency), so a
+ * workspace total always equals its rows. Projects with no Plane workspace group
+ * under null.
+ */
+export function summariseWorkspaces(
+  projects: Array<{
+    workspace_slug: string | null;
+    archived: boolean;
+    summary: BudgetSummary;
+  }>,
+  currency: string,
+): WorkspaceTotals[] {
+  const groups = new Map<string, WorkspaceTotals>();
+  for (const project of projects) {
+    const key = project.workspace_slug ?? '';
+    let totals = groups.get(key);
+    if (!totals) {
+      totals = {
+        workspace: project.workspace_slug,
+        projectCount: 0,
+        archivedProjectCount: 0,
+        currency,
+        budget: 0,
+        spent: 0,
+        labourCost: 0,
+        expenses: 0,
+        billableMinutes: 0,
+      };
+      groups.set(key, totals);
+    }
+    totals.projectCount += 1;
+    if (project.archived) {
+      totals.archivedProjectCount += 1;
+    }
+    totals.budget = round2(totals.budget + (project.summary.convertedBudget ?? 0));
+    totals.spent = round2(totals.spent + project.summary.spent);
+    totals.labourCost = round2(totals.labourCost + project.summary.labourCost);
+    totals.expenses = round2(totals.expenses + project.summary.expenses.total);
+    totals.billableMinutes += project.summary.billableMinutes;
+  }
+  return [...groups.values()].sort((a, b) =>
+    (a.workspace ?? '').localeCompare(b.workspace ?? ''),
+  );
+}
+
+function round2(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
 export type ProjectRouteDeps = {
   db: Db;
   projectionHorizonDays: number;
@@ -47,21 +112,25 @@ export function projectRoutes(app: FastifyInstance, deps: ProjectRouteDeps): voi
   const managerOnly = app.requireRole('manager', 'administrator');
 
   app.get('/api/projects', { preHandler: anyMember }, async (request) => {
-    const query = request.query as { withBudget?: string };
+    const query = request.query as { withBudget?: string; workspace?: string };
     await refreshMemberAccessQuietly(access, request.member!);
     const viewer = viewerOf(request.member!);
-    const projects = await listProjects(db, request.member!.organisation_id, viewer);
+    const projects = await listProjects(db, request.member!.organisation_id, viewer, {
+      workspace: query.workspace,
+    });
 
     if (query.withBudget !== 'true') {
       return { projects };
     }
 
     const data = await getProjectSummaries(db, request.member!.organisation_id);
+    const withSummary = projects.map((project) => ({
+      ...project,
+      summary: summariseProject(project.id, data, projectionHorizonDays),
+    }));
     return {
-      projects: projects.map((project) => ({
-        ...project,
-        summary: summariseProject(project.id, data, projectionHorizonDays),
-      })),
+      projects: withSummary,
+      workspaces: summariseWorkspaces(withSummary, data.fx.reportingCurrency),
     };
   });
 

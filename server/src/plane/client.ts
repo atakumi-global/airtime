@@ -52,6 +52,42 @@ export class PlaneError extends Error {
   }
 }
 
+export type WorkspaceErrorCategory = 'unauthorised' | 'not_found' | 'network';
+
+/** Plane's own answer (401, 403, 404) versus a failure to get an answer at all. */
+export function categorizePlaneError(error: unknown): WorkspaceErrorCategory {
+  if (error instanceof PlaneError) {
+    if (error.status === 401 || error.status === 403) {
+      return 'unauthorised';
+    }
+    if (error.status === 404) {
+      return 'not_found';
+    }
+  }
+  return 'network';
+}
+
+/**
+ * A short reason that is safe to store and show: it names the category and the
+ * status, never the raw error text (which could carry request details).
+ */
+export function describePlaneError(error: unknown): string {
+  const category = categorizePlaneError(error);
+  if (error instanceof Error && error.message === 'plane_membership_unavailable') {
+    return 'Plane did not report project membership for this workspace.';
+  }
+  if (category === 'unauthorised') {
+    return 'Plane refused the token for this workspace.';
+  }
+  if (category === 'not_found') {
+    return 'Plane has no workspace with this slug.';
+  }
+  if (error instanceof PlaneError) {
+    return `Plane answered with status ${error.status}.`;
+  }
+  return 'Plane could not be reached.';
+}
+
 export type PlaneClientOptions = {
   baseUrl: string;
   workspaceSlug: string;

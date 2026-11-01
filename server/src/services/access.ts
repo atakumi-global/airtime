@@ -37,6 +37,14 @@ export class AccessError extends Error {
   }
 }
 
+export class ProjectArchivedError extends Error {
+  readonly statusCode = 409;
+  constructor(message = 'project_archived') {
+    super(message);
+    this.name = 'ProjectArchivedError';
+  }
+}
+
 export class ProjectNotFoundError extends Error {
   readonly statusCode = 404;
   constructor(message = 'project_not_found') {
@@ -91,7 +99,8 @@ export function readableOrUnassignedSql(
 
 /**
  * SQL expression that is true when the member may enter new time on the
- * project: a current Plane member, or a project with no Plane link.
+ * project: a current Plane member, or a project with no Plane link, and the
+ * project is not archived in Plane (archived projects stay readable history).
  */
 export function enterableProjectSql(
   memberId: string,
@@ -100,11 +109,13 @@ export function enterableProjectSql(
 ): string {
   params.push(memberId);
   const memberParam = `$${params.length}::uuid`;
-  return `(EXISTS (SELECT 1 FROM project_access pa
-                    WHERE pa.project_id = ${projectExpr}
-                      AND pa.member_id = ${memberParam} AND pa.status = 'member')
-    OR EXISTS (SELECT 1 FROM projects np
-                WHERE np.id = ${projectExpr} AND np.plane_project_id IS NULL))`;
+  return `((EXISTS (SELECT 1 FROM project_access pa
+                     WHERE pa.project_id = ${projectExpr}
+                       AND pa.member_id = ${memberParam} AND pa.status = 'member')
+     OR EXISTS (SELECT 1 FROM projects np
+                 WHERE np.id = ${projectExpr} AND np.plane_project_id IS NULL))
+    AND NOT EXISTS (SELECT 1 FROM projects ap
+                     WHERE ap.id = ${projectExpr} AND ap.archived))`;
 }
 
 export async function getProjectAccess(
@@ -177,6 +188,13 @@ export async function assertCanEnterTime(
   );
   if (level !== 'write') {
     throw new AccessError('project_access_required');
+  }
+  const archived = await db.query(
+    'SELECT 1 FROM projects WHERE organisation_id = $1 AND id = $2 AND archived',
+    [organisationId, projectId],
+  );
+  if (archived[0]) {
+    throw new ProjectArchivedError();
   }
 }
 
@@ -272,6 +290,51 @@ export async function applyMemberAccess(
     }
   });
   return { hash, changed };
+}
+
+/**
+ * A member who stops reading a workspace no longer sees its projects. Where
+ * they recorded time the project stays readable as history ('former'); every
+ * other access row for that workspace is removed. Time entries, budgets, rates
+ * and audit records are never touched.
+ */
+export async function releaseWorkspaceAccess(
+  client: PoolClient,
+  memberId: string,
+  organisationId: string,
+  workspaceSlugs: string[],
+): Promise<void> {
+  if (workspaceSlugs.length === 0) {
+    return;
+  }
+  const slugs = workspaceSlugs.map((slug) => slug.toLowerCase());
+  await client.query(
+    `DELETE FROM project_access pa
+      USING projects p
+      WHERE p.id = pa.project_id
+        AND pa.member_id = $1
+        AND pa.organisation_id = $2
+        AND lower(p.workspace_slug) = ANY($3::text[])
+        AND NOT EXISTS (
+          SELECT 1 FROM time_entries e
+           WHERE e.project_id = p.id AND e.member_id = $1
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM timers t WHERE t.project_id = p.id AND t.member_id = $1
+        )`,
+    [memberId, organisationId, slugs],
+  );
+  await client.query(
+    `UPDATE project_access pa
+        SET status = 'former', updated_at = now()
+       FROM projects p
+      WHERE p.id = pa.project_id
+        AND pa.member_id = $1
+        AND pa.organisation_id = $2
+        AND pa.status = 'member'
+        AND lower(p.workspace_slug) = ANY($3::text[])`,
+    [memberId, organisationId, slugs],
+  );
 }
 
 /** A member who disconnects can no longer be verified: history only. */

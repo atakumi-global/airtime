@@ -95,6 +95,7 @@ export function WorkItemSearch({ onClose }: { onClose: () => void }) {
             {item.project_name ? (
               <span className="muted small" style={{ marginLeft: 'auto' }}>
                 {item.project_name}
+                {item.workspace_slug ? ` · ${item.workspace_slug}` : ''}
               </span>
             ) : null}
           </li>

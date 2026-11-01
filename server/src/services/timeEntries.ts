@@ -32,6 +32,8 @@ export type EntryRow = {
   created_at: Date;
   updated_at: Date;
   deleted_at: Date | null;
+  /** The Plane workspace of the entry's project; set by reads that join projects. */
+  workspace_slug?: string | null;
 };
 
 export type TimerRow = {
@@ -49,6 +51,8 @@ export type TimerRow = {
   paused_seconds: number;
   created_at: Date;
   updated_at: Date;
+  /** The Plane workspace of the timer's project; set when the timer is read. */
+  workspace_slug?: string | null;
 };
 
 export class ValidationError extends Error {
@@ -182,7 +186,10 @@ export async function getRunningTimer(
   memberId: string,
 ): Promise<TimerRow | undefined> {
   const rows = await db.query<TimerRow>(
-    'SELECT * FROM timers WHERE organisation_id = $1 AND member_id = $2',
+    `SELECT t.*, p.workspace_slug
+       FROM timers t
+       LEFT JOIN projects p ON p.id = t.project_id
+      WHERE t.organisation_id = $1 AND t.member_id = $2`,
     [organisationId, memberId],
   );
   return rows[0];
@@ -460,15 +467,17 @@ export async function listEntries(
   ];
   const readable = readableOrUnassignedSql(viewer, 'time_entries.project_id', params);
   return db.query<EntryRow>(
-    `SELECT * FROM time_entries
-      WHERE organisation_id = $1
-        AND ($2::uuid IS NULL OR member_id = $2)
-        AND ($3::uuid IS NULL OR project_id = $3)
-        AND ($4::timestamptz IS NULL OR ended_at >= $4)
-        AND ($5::timestamptz IS NULL OR started_at <= $5)
-        AND ($6::boolean OR deleted_at IS NULL)
+    `SELECT time_entries.*, wp.workspace_slug
+       FROM time_entries
+       LEFT JOIN projects wp ON wp.id = time_entries.project_id
+      WHERE time_entries.organisation_id = $1
+        AND ($2::uuid IS NULL OR time_entries.member_id = $2)
+        AND ($3::uuid IS NULL OR time_entries.project_id = $3)
+        AND ($4::timestamptz IS NULL OR time_entries.ended_at >= $4)
+        AND ($5::timestamptz IS NULL OR time_entries.started_at <= $5)
+        AND ($6::boolean OR time_entries.deleted_at IS NULL)
         AND ${readable}
-      ORDER BY started_at DESC`,
+      ORDER BY time_entries.started_at DESC`,
     params,
   );
 }

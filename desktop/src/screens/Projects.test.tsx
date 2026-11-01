@@ -1,7 +1,7 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { ADMIN, PLAIN_MEMBER, PROJECTS, expense, summary, timeEntry } from '../test/fixtures';
-import { field, mountApp, renderReady, seedSession } from '../test/harness';
+import { ADMIN, PLAIN_MEMBER, PROJECTS, connection, expense, summary, timeEntry } from '../test/fixtures';
+import { field, mountApp, readCache, renderReady, seedSession } from '../test/harness';
 import { FakeServer, reject } from '../test/server';
 import { Projects } from './Projects';
 
@@ -9,6 +9,7 @@ async function setup(
   member = ADMIN,
   projects = PROJECTS,
   onNavigate: (view: string) => void = vi.fn(),
+  workspaceFilter = '',
 ) {
   const server = new FakeServer();
   server.on('GET /api/me', () => ({ member }));
@@ -24,7 +25,7 @@ async function setup(
       : { entries: [] },
   );
   const mounted = await renderReady(<Projects onNavigate={onNavigate} />, {
-    cache: { member, projects },
+    cache: { member, projects, workspaceFilter },
   });
   return { server, onNavigate, ...mounted };
 }
@@ -64,9 +65,63 @@ describe('Projects', () => {
     expect(screen.getByText('Over budget · 120%')).toBeTruthy();
   });
 
-  it('shows the empty state when there are no projects', async () => {
-    await setup(ADMIN, []);
+  it('explains that no workspace has been added and offers Settings', async () => {
+    const { onNavigate } = await setup(ADMIN, []);
+    expect(screen.getByText('No workspace has been added.')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Open Settings' }));
+    expect(onNavigate).toHaveBeenCalledWith('settings');
+  });
+
+  it('shows a different empty state when a workspace is added but has no projects', async () => {
+    const server = new FakeServer();
+    server.on('GET /api/me', () => ({ member: ADMIN }));
+    server.on('GET /api/projects', () => ({ projects: [] }));
+    server.on('GET /api/plane/connection', () => ({ connection: connection() }));
+    await renderReady(<Projects onNavigate={vi.fn()} />, { cache: { member: ADMIN, projects: [] } });
     expect(screen.getByText('No projects yet.')).toBeTruthy();
+    expect(screen.queryByText('No workspace has been added.')).toBeNull();
+  });
+
+  it('shows the workspace of each project, so equal names are told apart', async () => {
+    await setup(ADMIN, [
+      { ...PROJECTS[0]!, id: 'p-a', workspace_slug: 'alpha' },
+      { ...PROJECTS[0]!, id: 'p-b', workspace_slug: 'beta' },
+    ]);
+    const rows = screen.getAllByRole('button', { name: 'Website' }).map((button) => button.closest('tr')!);
+    expect(rows).toHaveLength(2);
+    expect(within(rows[0]!).getByText('alpha')).toBeTruthy();
+    expect(within(rows[1]!).getByText('beta')).toBeTruthy();
+  });
+
+  it('filters the list to one workspace, remembers the choice and totals follow it', async () => {
+    const projects = [
+      { ...PROJECTS[0]!, id: 'p-a', workspace_slug: 'alpha' },
+      { ...PROJECTS[0]!, id: 'p-b', workspace_slug: 'beta', archived: true },
+    ];
+    const { app } = await setup(ADMIN, projects);
+    const totals = () => within(screen.getByRole('region', { name: 'Totals per workspace' }));
+    expect(totals().getByText('alpha')).toBeTruthy();
+    expect(totals().getByText('beta')).toBeTruthy();
+    expect(totals().getByText('1 (1 archived)')).toBeTruthy();
+
+    fireEvent.change(field<HTMLSelectElement>('Workspace'), { target: { value: 'beta' } });
+
+    expect(screen.getAllByRole('button', { name: 'Website' })).toHaveLength(1);
+    expect(totals().queryByText('alpha')).toBeNull();
+    expect(screen.getByText('1 project in beta')).toBeTruthy();
+    expect(app().workspaceFilter).toBe('beta');
+    await waitFor(() => expect(readCache()?.workspaceFilter).toBe('beta'));
+  });
+
+  it('flags an archived project and says it takes no new time', async () => {
+    await setup(ADMIN, [{ ...PROJECTS[0]!, archived: true, can_enter_time: false }]);
+    expect(screen.getByText('Archived in Plane · history only, no new time')).toBeTruthy();
+  });
+
+  it('ignores a remembered filter whose workspace no longer exists', async () => {
+    await setup(ADMIN, PROJECTS, vi.fn(), 'gone');
+    expect(screen.getByRole('button', { name: 'Website' })).toBeTruthy();
+    expect(field<HTMLSelectElement>('Workspace').value).toBe('');
   });
 
   it('says it is showing cached data when offline', async () => {

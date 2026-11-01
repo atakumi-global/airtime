@@ -395,4 +395,65 @@ export const migrations: Migration[] = [
       ON CONFLICT (member_id, project_id) DO NOTHING;
     `,
   },
+  {
+    id: '013_connection_workspaces',
+    sql: `
+      -- A connection (base URL + the member's account token) now reads a list of
+      -- Plane workspaces. Plane has no token-authenticated endpoint that lists
+      -- them, so the member names the slugs and each one is verified on its own.
+      CREATE TABLE IF NOT EXISTS plane_connection_workspaces (
+        id uuid PRIMARY KEY,
+        connection_id uuid NOT NULL REFERENCES plane_connections(id) ON DELETE CASCADE,
+        organisation_id uuid NOT NULL REFERENCES organisations(id) ON DELETE CASCADE,
+        slug text NOT NULL,
+        status text NOT NULL DEFAULT 'pending'
+          CHECK (status IN ('pending', 'verified', 'failed')),
+        error_category text CHECK (error_category IN ('unauthorised', 'not_found', 'network')),
+        last_error text,
+        project_count integer,
+        webhook_secret text,
+        last_verified_at timestamptz,
+        last_synced_at timestamptz,
+        created_at timestamptz NOT NULL DEFAULT now(),
+        updated_at timestamptz NOT NULL DEFAULT now()
+      );
+
+      CREATE UNIQUE INDEX IF NOT EXISTS plane_connection_workspaces_slug_uq
+        ON plane_connection_workspaces (connection_id, lower(slug));
+      CREATE UNIQUE INDEX IF NOT EXISTS plane_connection_workspaces_webhook_uq
+        ON plane_connection_workspaces (webhook_secret) WHERE webhook_secret IS NOT NULL;
+
+      -- Existing single-workspace connections keep their token, base URL and
+      -- webhook: the stored slug becomes the first list entry and the connection's
+      -- webhook secret now belongs to that workspace.
+      INSERT INTO plane_connection_workspaces
+        (id, connection_id, organisation_id, slug, status, webhook_secret,
+         last_verified_at, last_synced_at)
+      SELECT gen_random_uuid(), c.id, c.organisation_id, c.workspace_slug,
+             CASE WHEN c.status = 'error' THEN 'failed' ELSE 'verified' END,
+             c.webhook_secret, c.last_verified_at, c.last_synced_at
+        FROM plane_connections c
+       WHERE c.workspace_slug IS NOT NULL AND btrim(c.workspace_slug) <> ''
+      ON CONFLICT DO NOTHING;
+
+      -- The single slug on the connection is obsolete; the column stays for
+      -- rollback safety but is no longer written.
+      ALTER TABLE plane_connections ALTER COLUMN workspace_slug DROP NOT NULL;
+
+      -- Work items carry the workspace they came from, like projects do.
+      ALTER TABLE work_items ADD COLUMN IF NOT EXISTS workspace_slug text;
+      UPDATE work_items w
+         SET workspace_slug = p.workspace_slug
+        FROM projects p
+       WHERE p.id = w.project_id AND w.workspace_slug IS NULL;
+
+      CREATE INDEX IF NOT EXISTS projects_workspace_idx
+        ON projects (organisation_id, workspace_slug);
+
+      -- A sync where some workspaces succeeded and others failed.
+      ALTER TABLE plane_sync_runs DROP CONSTRAINT IF EXISTS plane_sync_runs_status_check;
+      ALTER TABLE plane_sync_runs ADD CONSTRAINT plane_sync_runs_status_check
+        CHECK (status IN ('ok', 'partial', 'error'));
+    `,
+  },
 ];

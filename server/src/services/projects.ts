@@ -29,14 +29,17 @@ export async function listProjects(
   db: Db,
   organisationId: string,
   viewer: Viewer,
+  options: { workspace?: string } = {},
 ): Promise<ProjectRow[]> {
-  const params: unknown[] = [organisationId];
+  const params: unknown[] = [organisationId, options.workspace ? options.workspace.toLowerCase() : null];
   const readable = readableProjectSql(viewer, 'projects.id', params);
   const enterable = enterableProjectSql(viewer.memberId, 'projects.id', params);
   return db.query<ProjectRow>(
     `SELECT projects.*, ${enterable} AS can_enter_time FROM projects
-      WHERE organisation_id = $1 AND ${readable}
-      ORDER BY name ASC`,
+      WHERE organisation_id = $1
+        AND ($2::text IS NULL OR lower(workspace_slug) = $2)
+        AND ${readable}
+      ORDER BY name ASC, workspace_slug ASC NULLS LAST`,
     params,
   );
 }

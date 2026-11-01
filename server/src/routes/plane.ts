@@ -1,12 +1,19 @@
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import type { Db } from '../db/pool.js';
-import { normalizeBaseUrl, PlaneClient } from '../plane/client.js';
+import { normalizeBaseUrl } from '../plane/client.js';
 import { syncConnection } from '../plane/sync.js';
+import {
+  checkWorkspace,
+  normaliseWorkspaceSlugs,
+  WorkspaceSlugError,
+} from '../plane/workspaces.js';
 import {
   deleteConnection,
   getConnectionByWebhookSecret,
   getConnectionForMember,
+  openConnectionToken,
+  recordWorkspaceCheck,
   toPublicConnection,
   upsertConnection,
 } from '../services/connections.js';
@@ -18,11 +25,19 @@ import {
 } from '../services/accessCheck.js';
 import { listWorkItems } from '../services/workItems.js';
 
-const connectionSchema = z.object({
-  baseUrl: z.string().url(),
-  workspaceSlug: z.string().min(1),
-  token: z.string().min(1),
-});
+// A connection is a base URL, the member's account token and the workspace slugs
+// to read. `workspaceSlug` (one slug) is still accepted from older clients. The
+// token may be left out to keep the stored one while the slug list is edited.
+const connectionSchema = z
+  .object({
+    baseUrl: z.string().url(),
+    workspaceSlugs: z.array(z.string().max(200)).max(100).optional(),
+    workspaceSlug: z.string().max(200).optional(),
+    token: z.string().min(1).optional(),
+  })
+  .refine((value) => value.workspaceSlugs !== undefined || value.workspaceSlug !== undefined);
+
+const webhookBodySchema = z.object({ workspace_slug: z.string().max(200).optional() }).passthrough();
 
 export type PlaneRouteDeps = {
   db: Db;
@@ -60,30 +75,55 @@ export function planeRoutes(app: FastifyInstance, deps: PlaneRouteDeps): void {
       return reply.code(400).send({ error: 'invalid_request' });
     }
 
-    const baseUrl = normalizeBaseUrl(parsed.data.baseUrl);
-    const client = new PlaneClient({
-      baseUrl,
-      workspaceSlug: parsed.data.workspaceSlug,
-      token: parsed.data.token,
-    });
-
-    let projectCount: number;
+    let slugs: string[];
     try {
-      ({ projectCount } = await client.verify());
-    } catch {
-      return reply.code(400).send({ error: 'plane_verification_failed' });
+      slugs = normaliseWorkspaceSlugs(
+        parsed.data.workspaceSlugs ?? [parsed.data.workspaceSlug ?? ''],
+      );
+    } catch (error) {
+      if (error instanceof WorkspaceSlugError) {
+        return reply.code(400).send({ error: error.code, message: error.message });
+      }
+      throw error;
     }
 
-    const connection = await upsertConnection(db, {
+    const existing = await getConnectionForMember(
+      db,
+      request.member!.organisation_id,
+      request.member!.id,
+    );
+    const token = parsed.data.token ?? (existing ? openConnectionToken(existing, key) : null);
+    if (!token) {
+      return reply.code(400).send({ error: 'token_required' });
+    }
+
+    const baseUrl = normalizeBaseUrl(parsed.data.baseUrl);
+    // Each slug is verified on its own: one that fails does not stop the others.
+    const checks = await Promise.all(
+      slugs.map((slug) => checkWorkspace({ baseUrl, token, slug, fetchImpl: deps.access.fetchImpl })),
+    );
+    if (!checks.some((check) => check.status === 'verified')) {
+      return reply.code(400).send({
+        error: 'plane_verification_failed',
+        workspaces: checks.map((check) => ({
+          slug: check.slug,
+          status: check.status,
+          errorCategory: check.errorCategory,
+          error: check.error,
+        })),
+      });
+    }
+
+    const { connection, removedSlugs } = await upsertConnection(db, {
       organisationId: request.member!.organisation_id,
       memberId: request.member!.id,
       baseUrl,
-      workspaceSlug: parsed.data.workspaceSlug,
-      token: parsed.data.token,
+      workspaces: checks,
+      token,
       key,
     });
 
-    let sync: { projects: number; workItems: number } | null = null;
+    let sync: Awaited<ReturnType<typeof syncConnection>> | null = null;
     let warning: string | null = null;
     try {
       sync = await syncConnection(db, connection, key, 'connect');
@@ -91,16 +131,53 @@ export function planeRoutes(app: FastifyInstance, deps: PlaneRouteDeps): void {
       warning = error instanceof Error ? error.message : 'sync_failed';
     }
 
+    // The sync has updated the workspace rows; send the stored state back.
+    const fresh = (await getConnectionForMember(
+      db,
+      request.member!.organisation_id,
+      request.member!.id,
+    ))!;
     return {
-      connection: toPublicConnection(connection),
-      workspace: {
-        slug: connection.workspace_slug,
-        baseUrl: connection.base_url,
-        projectCount,
-      },
+      connection: toPublicConnection(fresh),
+      removedWorkspaces: removedSlugs,
       sync,
       warning,
     };
+  });
+
+  // "Verify all": re-checks every configured slug with the stored token.
+  app.post('/api/plane/workspaces/verify', { preHandler: anyMember }, async (request, reply) => {
+    const key = keyOr503(reply);
+    if (!key) return;
+
+    const connection = await getConnectionForMember(
+      db,
+      request.member!.organisation_id,
+      request.member!.id,
+    );
+    if (!connection) {
+      return reply.code(404).send({ error: 'connection_not_found' });
+    }
+    const token = openConnectionToken(connection, key);
+    const checks = await Promise.all(
+      connection.workspaces.map((workspace) =>
+        checkWorkspace({
+          baseUrl: connection.base_url,
+          token,
+          slug: workspace.slug,
+          fetchImpl: deps.access.fetchImpl,
+        }),
+      ),
+    );
+    for (const check of checks) {
+      await recordWorkspaceCheck(db, connection.id, check);
+    }
+    const fresh = (await getConnectionForMember(
+      db,
+      request.member!.organisation_id,
+      request.member!.id,
+    ))!;
+    return { connection: toPublicConnection(fresh) };
   });
 
   // Re-reads the member's project memberships from Plane and returns the
@@ -167,6 +244,7 @@ export function planeRoutes(app: FastifyInstance, deps: PlaneRouteDeps): void {
     async (request) => {
       const query = request.query as {
         projectId?: string;
+        workspace?: string;
         includeClosed?: string;
       };
       await refreshMemberAccessQuietly(deps.access, request.member!);
@@ -176,6 +254,7 @@ export function planeRoutes(app: FastifyInstance, deps: PlaneRouteDeps): void {
         viewerOf(request.member!),
         {
           projectId: query.projectId,
+          workspace: query.workspace,
           includeClosed: query.includeClosed === 'true',
         },
       );
@@ -190,13 +269,23 @@ export function planeRoutes(app: FastifyInstance, deps: PlaneRouteDeps): void {
       if (!key) return;
 
       const { secret } = request.params as { secret: string };
-      const connection = await getConnectionByWebhookSecret(db, secret);
-      if (!connection) {
+      const match = await getConnectionByWebhookSecret(db, secret);
+      if (!match) {
         return reply.code(404).send({ error: 'connection_not_found' });
       }
+      const { connection } = match;
+
+      // The secret belongs to one workspace. Plane's delivery names the workspace
+      // too (`workspace_slug`); when it names another workspace of the same
+      // connection, that one is synced instead.
+      const body = webhookBodySchema.safeParse(request.body ?? {});
+      const named = body.success ? body.data.workspace_slug?.toLowerCase() : undefined;
+      const scoped =
+        connection.workspaces.find((workspace) => workspace.slug.toLowerCase() === named)?.slug ??
+        match.workspaceSlug;
 
       try {
-        const summary = await syncConnection(db, connection, key, 'webhook');
+        const summary = await syncConnection(db, connection, key, 'webhook', scoped);
         return reply.code(202).send({ sync: summary });
       } catch (error) {
         return reply.code(502).send({

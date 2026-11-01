@@ -11,6 +11,9 @@ import {
   type ShortcutId,
 } from '../lib/shortcuts';
 import { useShortcuts } from '../state/ShortcutsContext';
+import { ApiError } from '../lib/api';
+import { normaliseSlugs } from '../lib/workspaces';
+import type { PlaneWorkspace } from '../lib/types';
 
 function ShortcutsSection() {
   const { bindings, setBinding, resetBinding, resetAll, isCustom, setCapturing } =
@@ -177,6 +180,137 @@ function ShortcutsSection() {
   );
 }
 
+const STATUS_LABEL: Record<PlaneWorkspace['status'], { icon: string; text: string; tone: 'success' | 'danger' | 'neutral' }> = {
+  verified: { icon: '✓', text: 'Verified', tone: 'success' },
+  failed: { icon: '✕', text: 'Failed', tone: 'danger' },
+  pending: { icon: '…', text: 'Verifying', tone: 'neutral' },
+};
+
+/**
+ * The workspaces a Plane connection reads: one slug per row with its state as
+ * text and an icon, add and remove buttons, no drag interaction.
+ */
+function WorkspaceList({
+  slugs,
+  known,
+  onChange,
+  disabled,
+}: {
+  slugs: string[];
+  known: PlaneWorkspace[];
+  onChange: (slugs: string[]) => void;
+  disabled: boolean;
+}) {
+  const [draft, setDraft] = useState('');
+  const [problem, setProblem] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const add = () => {
+    const slug = draft.trim();
+    if (slug === '') {
+      setProblem('Enter a workspace slug.');
+      return;
+    }
+    if (!/^[A-Za-z0-9_-]{1,48}$/.test(slug)) {
+      setProblem('A slug may only contain letters, numbers, hyphens and underscores.');
+      return;
+    }
+    if (slugs.some((existing) => existing.toLowerCase() === slug.toLowerCase())) {
+      setProblem(`${slug} is already in the list.`);
+      return;
+    }
+    setProblem(null);
+    onChange(normaliseSlugs([...slugs, slug]));
+    setDraft('');
+    inputRef.current?.focus();
+  };
+
+  return (
+    <fieldset className="stack" style={{ border: 0, padding: 0, margin: 0 }}>
+      <legend className="small" style={{ fontWeight: 500 }}>
+        Workspaces to sync
+      </legend>
+      <p className="muted small" id="workspace-list-hint">
+        Plane cannot list the workspaces a token reaches, so name each one. Every
+        slug is checked on its own.
+      </p>
+      {slugs.length === 0 ? (
+        <p className="muted small">No workspace added yet.</p>
+      ) : (
+        <ul className="stack" style={{ listStyle: 'none', margin: 0, padding: 0 }} aria-label="Workspaces">
+          {slugs.map((slug) => {
+            const state = known.find((entry) => entry.slug.toLowerCase() === slug.toLowerCase());
+            const label = state ? STATUS_LABEL[state.status] : null;
+            return (
+              <li key={slug.toLowerCase()} className="row" style={{ alignItems: 'center' }}>
+                <span className="mono" style={{ flex: 1 }}>
+                  {slug}
+                </span>
+                {label ? (
+                  <Badge tone={label.tone} icon={label.icon}>
+                    {label.text}
+                  </Badge>
+                ) : (
+                  <Badge tone="neutral">Not saved yet</Badge>
+                )}
+                {state?.status === 'failed' && state.error ? (
+                  <span className="muted small">{state.error}</span>
+                ) : null}
+                {state?.webhookPath ? (
+                  <span className="muted small mono" title="Register this path as the webhook of this workspace in Plane">
+                    Webhook {state.webhookPath}
+                  </span>
+                ) : null}
+                <button
+                  type="button"
+                  className="btn btn-sm"
+                  onClick={() =>
+                    onChange(slugs.filter((entry) => entry.toLowerCase() !== slug.toLowerCase()))
+                  }
+                  disabled={disabled}
+                  aria-label={`Remove workspace ${slug}`}
+                >
+                  Remove
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      <div className="row" style={{ alignItems: 'flex-end' }}>
+        <div style={{ flex: 1 }}>
+          <Field label="Workspace slug">
+            <input
+              ref={inputRef}
+              className="input"
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  add();
+                }
+              }}
+              placeholder="my-workspace"
+              aria-describedby="workspace-list-hint"
+              autoComplete="off"
+              spellCheck={false}
+            />
+          </Field>
+        </div>
+        <button type="button" className="btn" onClick={add} disabled={disabled}>
+          Add workspace
+        </button>
+      </div>
+      {problem ? (
+        <span className="err" role="alert">
+          {problem}
+        </span>
+      ) : null}
+    </fieldset>
+  );
+}
+
 export function Settings() {
   const {
     baseUrl,
@@ -187,6 +321,7 @@ export function Settings() {
     logout,
     setFeedbackOptIn,
     savePlaneConnection,
+    verifyPlaneWorkspaces,
     syncPlane,
     updateReportingCurrency,
     updateDefaultHourlyRate,
@@ -206,9 +341,10 @@ export function Settings() {
   const [planeUrl, setPlaneUrl] = useState(
     planeConnection?.baseUrl ?? 'https://plane.example.com',
   );
-  const [workspaceSlug, setWorkspaceSlug] = useState(
-    planeConnection?.workspaceSlug ?? '',
-  );
+  // The list follows the server's until the member starts editing it.
+  const [editedSlugs, setEditedSlugs] = useState<string[] | null>(null);
+  const workspaceSlugs =
+    editedSlugs ?? (planeConnection?.workspaces ?? []).map((workspace) => workspace.slug);
   const [planeToken, setPlaneToken] = useState('');
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -222,13 +358,36 @@ export function Settings() {
       setMessage(
         await savePlaneConnection({
           baseUrl: planeUrl,
-          workspaceSlug,
-          token: planeToken,
+          workspaceSlugs: normaliseSlugs(workspaceSlugs),
+          ...(planeToken ? { token: planeToken } : {}),
         }),
       );
       setPlaneToken('');
+      setEditedSlugs(null);
     } catch (connectError) {
+      if (connectError instanceof ApiError && connectError.status === 400) {
+        const results = connectError.body?.workspaces;
+        if (Array.isArray(results) && results.length > 0) {
+          const failed = (results as Array<{ slug: string; error: string | null }>)
+            .map((entry) => `${entry.slug}: ${entry.error ?? 'could not be read'}`)
+            .join(' ');
+          setError(`No workspace could be read. ${failed}`);
+          return;
+        }
+      }
       setError(connectError instanceof Error ? connectError.message : 'Connection failed');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const verifyAll = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      setMessage(await verifyPlaneWorkspaces());
+    } catch (verifyError) {
+      setError(verifyError instanceof Error ? verifyError.message : 'Verification failed');
     } finally {
       setBusy(false);
     }
@@ -311,7 +470,11 @@ export function Settings() {
         </div>
       </div>
 
-      {message ? <div className="banner">{message}</div> : null}
+      {message ? (
+        <div className="banner" role="status">
+          {message}
+        </div>
+      ) : null}
       {error ? (
         <div className="banner banner-error" role="alert">
           {error}
@@ -478,31 +641,41 @@ export function Settings() {
             placeholder="https://plane.example.com"
           />
         </Field>
-        <div className="row">
-          <div style={{ flex: 1 }}>
-            <Field label="Workspace slug">
-              <input
-                className="input"
-                value={workspaceSlug}
-                onChange={(event) => setWorkspaceSlug(event.target.value)}
-                placeholder="my-workspace"
-              />
-            </Field>
-          </div>
-          <div style={{ flex: 2 }}>
-            <Field label="Personal API token">
-              <input
-                className="input"
-                type="password"
-                value={planeToken}
-                onChange={(event) => setPlaneToken(event.target.value)}
-                placeholder="plane_api_…"
-              />
-            </Field>
-          </div>
-        </div>
+        <Field
+          label="Personal API token"
+          hint={
+            planeConnection
+              ? 'Leave empty to keep the stored token. One account token covers every workspace you can reach.'
+              : 'One account token covers every workspace you can reach.'
+          }
+        >
+          <input
+            className="input"
+            type="password"
+            value={planeToken}
+            onChange={(event) => setPlaneToken(event.target.value)}
+            placeholder="plane_api_…"
+          />
+        </Field>
+
+        <WorkspaceList
+          slugs={workspaceSlugs}
+          known={planeConnection?.workspaces ?? []}
+          onChange={(next) => {
+            setEditedSlugs(next);
+          }}
+          disabled={busy}
+        />
 
         <div className="row" style={{ justifyContent: 'flex-end' }}>
+          <button
+            type="button"
+            className="btn"
+            onClick={() => void verifyAll()}
+            disabled={busy || !planeConnection || planeConnection.workspaces.length === 0}
+          >
+            Verify all
+          </button>
           <button
             type="button"
             className="btn"
@@ -515,7 +688,7 @@ export function Settings() {
             type="button"
             className="btn btn-primary"
             onClick={() => void connect()}
-            disabled={busy || !workspaceSlug || !planeToken}
+            disabled={busy || workspaceSlugs.length === 0 || (!planeToken && !planeConnection)}
           >
             {busy ? 'Working…' : 'Connect and sync'}
           </button>
