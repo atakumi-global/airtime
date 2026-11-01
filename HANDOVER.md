@@ -192,6 +192,14 @@ AIRTIME-1, 3, 4, 5, 7, 8, 9, 10, 16, 17–24, 26, 31, 32, 33, 53, 55.
 - Copy-last-week, split and duplicate (PO additions to AIRTIME-32) were
   descoped for the same reason: no design reference.
 
+### Dev preview
+
+- **AIRTIME-95** (dev preview did not start) — root cause was in `stack.sh`, not in a
+  migration: the preview's Postgres container was running and healthy but had lost its
+  published port 3502, and `docker compose up --wait` accepted it. `stack.sh start` now
+  checks that the database port listens and otherwise recreates the services (volumes
+  and data kept). Test: `server/test/stack.test.ts`.
+
 ## Remaining work, in order
 
 1. Push the stack (`feature/AIRTIME-31`..`33`) and open PRs into `dev`; promote

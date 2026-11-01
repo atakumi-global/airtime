@@ -84,6 +84,23 @@ port_free_or_ours() {
   fi
 }
 
+# `compose up --wait` accepts a container that is running and healthy even when it has
+# lost its network and published port (Docker leaves a container like that when an
+# earlier start failed because another container held the port). The app then gets
+# ECONNREFUSED on the database port. Recreate the services in that case: named volumes,
+# and with them the data, are kept.
+db_listening() { ss -Hltn "sport = :$DB_PORT" 2>/dev/null | grep -q .; }
+ensure_services() {
+  [ -n "$COMPOSE_FILE" ] || return 0
+  compose up -d --wait
+  for _ in 1 2 3 4 5; do db_listening && return 0; sleep 1; done
+  echo "database port $DB_PORT is not published although the services run; recreating them (volumes kept)" >&2
+  compose up -d --force-recreate --wait
+  for _ in $(seq 1 15); do db_listening && return 0; sleep 1; done
+  echo "FAIL: database port $DB_PORT is still not listening after recreating the services" >&2
+  return 1
+}
+
 start() {
   mkdir -p "$STATE_DIR" "$(dirname "$SECRETS_FILE")"
   if [ ! -f "$SECRETS_FILE" ]; then (umask 077; dev_secrets > "$SECRETS_FILE"); fi
@@ -92,7 +109,7 @@ start() {
   . "$SECRETS_FILE"
   set +a
   port_free_or_ours "$APP_PORT"
-  if [ -n "$COMPOSE_FILE" ]; then compose up -d --wait; fi
+  ensure_services
   prepare
   if [ -n "$APP_CMD" ] && ! app_running; then
     app_env
